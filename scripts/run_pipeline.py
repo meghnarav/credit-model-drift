@@ -15,7 +15,7 @@ def main():
     print("Loading data...")
     dataset_path = 'data/raw/heloc_dataset.csv'
     if not os.path.exists(dataset_path):
-        print(f"Error: {dataset_path} not found. Please run scripts/download_data.py first.")
+        print(f"Error: {dataset_path} not found. Please download the FICO HELOC dataset and place it in the data/raw/ directory.")
         return
 
     df = load_and_clean_data(dataset_path)
