@@ -26,7 +26,7 @@ def setup_dice(df_t0, model, features, backend='sklearn'):
     Initializes the DiCE explainer object on the T0 dataset.
     """
     # DiCE expects the target column in the data
-    d = dice_ml.Data(dataframe=df_t0, continuous_features=features, outcome_name='RiskPerformance')
+    d = dice_ml.Data(dataframe=df_t0[features + ['RiskPerformance']], continuous_features=features, outcome_name='RiskPerformance')
     m = dice_ml.Model(model=model, backend=backend)
     exp = dice_ml.Dice(d, m, method="random")
     return exp
