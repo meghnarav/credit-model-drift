@@ -7,3 +7,5 @@ statsmodels
 pytest
 pandas
 numpy
+fastapi
+uvicorn
