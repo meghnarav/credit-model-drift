@@ -1,69 +1,166 @@
-import Image from "next/image";
+"use client";
+import React, { useState } from 'react';
 
-export default function Home() {
+export default function Dashboard() {
+  const [loading, setLoading] = useState(false);
+  const [hasEvaluated, setHasEvaluated] = useState(false);
+
+  const handleEvaluate = () => {
+    setLoading(true);
+    setTimeout(() => {
+      setLoading(false);
+      setHasEvaluated(true);
+    }, 1500); // Simulate API call
+  };
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert h-5 w-[100px]"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the{" "}
-            <code className="rounded bg-black/[.06] px-1.5 py-0.5 font-mono text-[0.9em] dark:bg-white/[.08]">
-              page.tsx
-            </code>{" "}
-            file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+    <main className="min-h-screen p-8 max-w-6xl mx-auto">
+      <header className="mb-10 flex justify-between items-end border-b-2 border-[#1E1E1E] pb-4 border-dashed">
+        <div>
+          <h1 className="text-5xl font-display text-[#1E1E1E]">Credit Drift Analysis ✦</h1>
+          <p className="text-lg text-gray-700 mt-2 font-semibold">Evaluating Recourse Reliability under Covariate Shift</p>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert h-[14px] w-4"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={14}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+        {!hasEvaluated && (
+          <button onClick={handleEvaluate} className="brutal-btn brutal-btn-primary text-lg">
+            {loading ? 'Evaluating...' : 'Run Evaluation ✨'}
+          </button>
+        )}
+      </header>
+
+      {hasEvaluated ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+          
+          {/* Top Left: Applicant Profile */}
+          <div className="brutal-card relative overflow-hidden">
+            <div className="absolute top-2 right-2 text-3xl opacity-20">📝</div>
+            <h2 className="text-3xl font-display mb-4">Applicant Profile</h2>
+            <div className="flex items-center gap-3 mb-6">
+              <span className="brutal-badge bg-[#EBF4FF]">ID: APP-9824</span>
+              <span className="brutal-badge brutal-badge-warning flex items-center gap-1">
+                <span>⚠️</span> Thin-File
+              </span>
+            </div>
+            <div className="space-y-3">
+              <div className="flex justify-between border-b-[1.5px] border-[#1E1E1E] border-dashed pb-1">
+                <span className="font-semibold">Oldest Trade Open</span>
+                <span>24 Months</span>
+              </div>
+              <div className="flex justify-between border-b-[1.5px] border-[#1E1E1E] border-dashed pb-1">
+                <span className="font-semibold">Total Trades</span>
+                <span>5</span>
+              </div>
+              <div className="flex justify-between border-b-[1.5px] border-[#1E1E1E] border-dashed pb-1">
+                <span className="font-semibold">Revolving Burden</span>
+                <span>85.0%</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Top Right: Decision & Risk Gauge */}
+          <div className="brutal-card bg-[#FFDAB9] relative">
+            <div className="absolute top-2 right-2 text-3xl opacity-20">⚖️</div>
+            <h2 className="text-3xl font-display mb-4">Base Decision (T₀)</h2>
+            <div className="flex flex-col items-center justify-center py-4">
+              <div className="text-6xl mb-2 font-display text-[#1E1E1E]">Denied</div>
+              <p className="font-bold text-lg">Approval Probability: 41%</p>
+            </div>
+            <div className="wavy-divider"></div>
+            <div className="bg-[#FFFDF9] border-2 border-[#1E1E1E] rounded-xl p-4 mt-4">
+              <h3 className="font-display text-xl mb-2 flex items-center gap-2"><span>🚨</span> Drift Vulnerability Risk</h3>
+              <div className="flex justify-between items-center">
+                <span className="font-bold text-lg">66.67%</span>
+                <span className="brutal-badge brutal-badge-danger">High Risk</span>
+              </div>
+              <p className="text-sm mt-2 font-semibold text-gray-700">
+                Recourse invalidation rate for this subgroup under macroeconomic shift (T₁).
+              </p>
+            </div>
+          </div>
+
+          {/* Bottom Left: SHAP Attributions */}
+          <div className="brutal-card">
+            <h2 className="text-3xl font-display mb-4">SHAP Barriers (T₀)</h2>
+            <p className="mb-4 text-sm font-semibold">Key features contributing to the denial.</p>
+            <div className="space-y-4">
+              <div>
+                <div className="flex justify-between text-sm font-bold mb-1">
+                  <span>NetFractionRevolvingBurden</span>
+                  <span className="text-red-500">-1.24</span>
+                </div>
+                <div className="w-full h-4 border-2 border-[#1E1E1E] rounded-full bg-gray-100 overflow-hidden">
+                  <div className="h-full bg-[#FCA5A5] w-3/4 border-r-2 border-[#1E1E1E]"></div>
+                </div>
+              </div>
+              <div>
+                <div className="flex justify-between text-sm font-bold mb-1">
+                  <span>NumSatisfactoryTrades</span>
+                  <span className="text-red-500">-0.85</span>
+                </div>
+                <div className="w-full h-4 border-2 border-[#1E1E1E] rounded-full bg-gray-100 overflow-hidden">
+                  <div className="h-full bg-[#FCA5A5] w-1/2 border-r-2 border-[#1E1E1E]"></div>
+                </div>
+              </div>
+              <div>
+                <div className="flex justify-between text-sm font-bold mb-1">
+                  <span>ExternalRiskEstimate</span>
+                  <span className="text-red-500">-0.42</span>
+                </div>
+                <div className="w-full h-4 border-2 border-[#1E1E1E] rounded-full bg-gray-100 overflow-hidden">
+                  <div className="h-full bg-[#FCA5A5] w-1/4 border-r-2 border-[#1E1E1E]"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Bottom Right: DiCE Recourse */}
+          <div className="brutal-card bg-[#EBF4FF]">
+            <div className="flex justify-between items-start mb-4">
+              <h2 className="text-3xl font-display">DiCE Action Plan</h2>
+              <span className="text-2xl">🌱</span>
+            </div>
+            <p className="font-semibold mb-4 border-b-2 border-[#1E1E1E] pb-2 border-dashed">
+              Required adjustments to reach <strong>Approved (f₀(x*) = 1)</strong>:
+            </p>
+            
+            <div className="space-y-4">
+              <div className="bg-[#FFFDF9] border-2 border-[#1E1E1E] rounded-xl p-3 flex flex-col gap-1 shadow-[2px_2px_0px_#1E1E1E]">
+                <div className="flex items-center gap-2">
+                  <span className="brutal-badge bg-[#60A5FA]">Actionable</span>
+                  <span className="font-bold">Revolving Burden</span>
+                </div>
+                <div className="flex items-center gap-2 text-lg">
+                  <span className="line-through text-gray-500">85.0</span>
+                  <span>→</span>
+                  <span className="font-black text-[#1E1E1E]">45.2</span>
+                </div>
+              </div>
+
+              <div className="bg-[#FFFDF9] border-2 border-[#1E1E1E] rounded-xl p-3 flex flex-col gap-1 shadow-[2px_2px_0px_#1E1E1E]">
+                <div className="flex items-center gap-2">
+                  <span className="brutal-badge bg-[#60A5FA]">Actionable</span>
+                  <span className="font-bold">External Risk Estimate</span>
+                </div>
+                <div className="flex items-center gap-2 text-lg">
+                  <span className="line-through text-gray-500">62</span>
+                  <span>→</span>
+                  <span className="font-black text-[#1E1E1E]">68</span>
+                </div>
+              </div>
+
+              <div className="bg-gray-200 border-2 border-[#1E1E1E] rounded-xl p-3 opacity-80 border-dashed">
+                <span className="text-sm font-bold">🔒 Immutable Context</span>
+                <p className="text-sm mt-1">MSinceOldestTradeOpen and NumTotalTrades locked by DiCE constraints.</p>
+              </div>
+            </div>
+          </div>
+          
         </div>
-      </main>
-    </div>
+      ) : (
+        <div className="h-64 flex flex-col items-center justify-center border-4 border-dashed border-[#1E1E1E] rounded-3xl opacity-60">
+          <div className="text-6xl mb-4">☕</div>
+          <p className="text-xl font-display">Ready to evaluate a loan application...</p>
+        </div>
+      )}
+    </main>
   );
 }

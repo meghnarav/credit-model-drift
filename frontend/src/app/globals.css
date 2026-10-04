@@ -1,26 +1,79 @@
-@import "tailwindcss";
+@import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700&family=Patrick+Hand&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --bg-color: #FAF7F0;
+  --card-bg: #FFFDF9;
+  --card-alt: #EBF4FF;
+  --text-main: #1E1E1E;
+  --accent-blue: #60A5FA;
+  --accent-yellow: #FDE047;
+  --accent-peach: #FFDAB9;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background-color: var(--bg-color);
+  color: var(--text-main);
+  font-family: 'Nunito', sans-serif;
+}
+
+h1, h2, h3, h4, h5, h6, .font-display {
+  font-family: 'Patrick Hand', cursive;
+}
+
+/* Base styles for cards */
+.brutal-card {
+  @apply rounded-2xl border-2 border-[#1E1E1E] bg-[#FFFDF9] p-6;
+  box-shadow: 3px 3px 0px #1E1E1E;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.brutal-card:hover {
+  transform: translate(-1px, -1px);
+  box-shadow: 4px 4px 0px #1E1E1E;
+}
+
+/* Button styles */
+.brutal-btn {
+  @apply rounded-xl border-2 border-[#1E1E1E] px-4 py-2 font-bold flex items-center justify-center gap-2;
+  box-shadow: 2px 2px 0px #1E1E1E;
+  transition: all 0.1s;
+}
+
+.brutal-btn:active {
+  transform: translate(2px, 2px);
+  box-shadow: 0px 0px 0px #1E1E1E;
+}
+
+.brutal-btn-primary {
+  @apply bg-[#60A5FA] text-[#1E1E1E];
+}
+
+/* Badges */
+.brutal-badge {
+  @apply rounded-full border-[1.5px] border-[#1E1E1E] px-3 py-1 text-sm font-bold;
+}
+
+.brutal-badge-danger {
+  @apply bg-[#FCA5A5];
+}
+
+.brutal-badge-warning {
+  @apply bg-[#FDE047];
+}
+
+.brutal-badge-success {
+  @apply bg-[#86EFAC];
+}
+
+/* Wavy divider */
+.wavy-divider {
+  height: 10px;
+  background-image: radial-gradient(circle at 10px 15px, transparent 12px, #1E1E1E 13px, transparent 14px);
+  background-size: 20px 20px;
+  background-position: -10px -10px;
+  margin: 1.5rem 0;
 }
