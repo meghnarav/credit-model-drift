@@ -22,9 +22,12 @@ h1, h2, h3, h4, h5, h6, .font-display {
   font-family: 'Patrick Hand', cursive;
 }
 
-/* Base styles for cards */
+/* Base styles for cards - Using standard CSS to fix IDE warnings and Tailwind v4 strictness */
 .brutal-card {
-  @apply rounded-2xl border-2 border-[#1E1E1E] bg-[#FFFDF9] p-6;
+  border-radius: 1rem;
+  border: 2px solid #1E1E1E;
+  background-color: #FFFDF9;
+  padding: 1.5rem;
   box-shadow: 3px 3px 0px #1E1E1E;
   transition: transform 0.2s, box-shadow 0.2s;
 }
@@ -36,7 +39,14 @@ h1, h2, h3, h4, h5, h6, .font-display {
 
 /* Button styles */
 .brutal-btn {
-  @apply rounded-xl border-2 border-[#1E1E1E] px-4 py-2 font-bold flex items-center justify-center gap-2;
+  border-radius: 0.75rem;
+  border: 2px solid #1E1E1E;
+  padding: 0.5rem 1rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
   box-shadow: 2px 2px 0px #1E1E1E;
   transition: all 0.1s;
 }
@@ -47,24 +57,30 @@ h1, h2, h3, h4, h5, h6, .font-display {
 }
 
 .brutal-btn-primary {
-  @apply bg-[#60A5FA] text-[#1E1E1E];
+  background-color: #60A5FA;
+  color: #1E1E1E;
 }
 
 /* Badges */
 .brutal-badge {
-  @apply rounded-full border-[1.5px] border-[#1E1E1E] px-3 py-1 text-sm font-bold;
+  border-radius: 9999px;
+  border: 1.5px solid #1E1E1E;
+  padding: 0.25rem 0.75rem;
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+  font-weight: 700;
 }
 
 .brutal-badge-danger {
-  @apply bg-[#FCA5A5];
+  background-color: #FCA5A5;
 }
 
 .brutal-badge-warning {
-  @apply bg-[#FDE047];
+  background-color: #FDE047;
 }
 
 .brutal-badge-success {
-  @apply bg-[#86EFAC];
+  background-color: #86EFAC;
 }
 
 /* Wavy divider */
