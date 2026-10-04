@@ -16,6 +16,27 @@ def evaluate_recourse_invalidation(model_t1, df_recourse, features):
     # Invalidation occurs if the prediction flips back to 0 (Denied) under T1
     invalidation_flags = (predictions_t1 == 0)
     return invalidation_flags
+def compute_action_cost(X_original, X_recourse, features_to_vary):
+    """
+    Computes the L1 distance (action cost) between the original instances and the counterfactuals,
+    normalized by the standard deviation of the features to ensure fair weighting.
+    """
+    cost_metrics = []
+    
+    # Calculate std dev for normalization based on the original data provided
+    std_devs = X_original[features_to_vary].std()
+    # Avoid division by zero
+    std_devs = std_devs.replace(0, 1)
+    
+    for i in range(len(X_original)):
+        orig = X_original[features_to_vary].iloc[i]
+        recourse = X_recourse[features_to_vary].iloc[i]
+        
+        # L1 (Manhattan) distance, normalized
+        l1_distance = np.sum(np.abs(orig - recourse) / std_devs)
+        cost_metrics.append(float(l1_distance))
+        
+    return np.array(cost_metrics)
 
 def compute_invalidation_rates(invalidation_flags, subgroups=None):
     """
