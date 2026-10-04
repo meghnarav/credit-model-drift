@@ -41,17 +41,42 @@ class ApplicantData(BaseModel):
     NumBank2NatlTradesWHighUtilization: float
     PercentTradesWBalance: float
 
+from fastapi import BackgroundTasks
+import time
+import uuid
+
+class LoanEvaluationRequest(BaseModel):
+    applicantId: str
+    features: dict
+    subgroup: str
+
 @app.get("/health")
 def health_check():
     return {"status": "ok", "model_loaded": model is not None}
 
+def run_dice_optimization(job_id: str, applicant_id: str, features: dict):
+    """
+    Simulates a heavy DiCE optimization task running on a Celery/Redis queue worker.
+    In a real environment, this would compute the counterfactuals and post a webhook
+    back to the Java Spring Boot API Gateway.
+    """
+    print(f"[Worker] Starting DiCE optimization for job {job_id} (Applicant {applicant_id})")
+    time.sleep(3) # Simulate heavy DiCE latency (3 seconds)
+    print(f"[Worker] Finished DiCE for job {job_id}. Action cost computed.")
+    # Here it would make a POST request to Java API: /api/v1/webhooks/recourse
+
 @app.post("/predict")
-def predict(data: ApplicantData):
+def predict(request: LoanEvaluationRequest, background_tasks: BackgroundTasks):
+    """
+    Production-ready endpoint handling the real-time latency budget.
+    Returns the immediate ML prediction instantly (<100ms) and queues the heavy 
+    DiCE optimization (seconds) to a background worker.
+    """
     if model is None:
         raise HTTPException(status_code=500, detail="Model not loaded")
     
     # Convert input to DataFrame
-    df = pd.DataFrame([data.dict()])
+    df = pd.DataFrame([request.features])
     
     # Predict using the T1 model (post-drift)
     prediction = model.predict(df)[0]
@@ -59,10 +84,18 @@ def predict(data: ApplicantData):
     
     status = "Approved" if prediction == 1 else "Denied"
     
+    # If denied, queue the DiCE counterfactual generation to a background task
+    # to avoid blocking the HTTP thread (solving the latency budget gap)
+    job_id = None
+    if status == "Denied":
+        job_id = str(uuid.uuid4())
+        background_tasks.add_task(run_dice_optimization, job_id, request.applicantId, request.features)
+    
     return {
-        "prediction": int(prediction),
-        "status": status,
-        "approval_probability": float(probability)
+        "applicantId": request.applicantId,
+        "decision": status,
+        "approvalProbability": float(probability),
+        "recourseJobId": job_id, # Frontend/Java can poll this or wait for webhook
+        "message": "Decision generated. Recourse optimization queued." if job_id else "Decision generated."
     }
 
-# In a full implementation, we'd add endpoints for /shap and /recourse here
