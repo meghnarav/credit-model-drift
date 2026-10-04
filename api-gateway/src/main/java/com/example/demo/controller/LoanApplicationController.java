@@ -35,7 +35,10 @@ public class LoanApplicationController {
             request.applicantId(),
             response.decision(),
             invalidationRate,
-            Instant.now()
+            Instant.now(),
+            "{}", // t0AdviceSnapshot
+            "PENDING", // t1RecheckStatus
+            0.0 // costDistance
         ));
         
         return ResponseEntity.ok(response);
