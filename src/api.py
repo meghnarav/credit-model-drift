@@ -95,7 +95,24 @@ def predict(request: LoanEvaluationRequest, background_tasks: BackgroundTasks):
         "applicantId": request.applicantId,
         "decision": status,
         "approvalProbability": float(probability),
-        "recourseJobId": job_id, # Frontend/Java can poll this or wait for webhook
+        "recourseJobId": job_id, 
         "message": "Decision generated. Recourse optimization queued." if job_id else "Decision generated."
     }
 
+@app.get("/api/v1/metrics/sensitivity")
+def get_sensitivity_metrics():
+    """Returns the pre-computed drift sensitivity curve data."""
+    try:
+        with open('results/sensitivity_metrics.json', 'r') as f:
+            return json.load(f)
+    except FileNotFoundError:
+        return {"error": "Sensitivity metrics not generated yet. Run sensitivity_analysis.py"}
+
+@app.get("/api/v1/metrics/failure-cases")
+def get_failure_cases():
+    """Returns representative thin-file failure case payloads."""
+    try:
+        with open('results/failure_cases.json', 'r') as f:
+            return json.load(f)
+    except FileNotFoundError:
+        return {"error": "Failure cases not generated yet. Run failure_cases.py"}
