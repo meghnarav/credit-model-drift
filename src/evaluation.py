@@ -3,6 +3,7 @@ import pandas as pd
 from statsmodels.stats.proportion import proportions_ztest
 import scipy.stats as stats
 import json
+from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, roc_auc_score, confusion_matrix
 
 def evaluate_recourse_invalidation(model_t1, df_recourse, features):
     """
@@ -125,3 +126,116 @@ Fisher Exact p-value & {tests['fisher_exact_pvalue']:.4f} \\\\
 """
     with open(f'{output_dir}/evaluation_results.tex', 'w') as f:
         f.write(latex_table)
+
+def compute_classification_metrics(y_true, y_pred, y_prob=None):
+    """
+    Computes standard credit-risk ML metrics:
+    Accuracy, Precision, Recall, F1-score, ROC-AUC, FPR (False Positive Rate), FNR (False Negative Rate).
+    """
+    acc = accuracy_score(y_true, y_pred)
+    prec = precision_score(y_true, y_pred, zero_division=0)
+    rec = recall_score(y_true, y_pred, zero_division=0)
+    f1 = f1_score(y_true, y_pred, zero_division=0)
+    
+    auc = np.nan
+    if y_prob is not None:
+        try:
+            auc = roc_auc_score(y_true, y_prob)
+        except Exception:
+            auc = np.nan
+            
+    # Confusion matrix: TN, FP, FN, TP
+    cm = confusion_matrix(y_true, y_pred, labels=[0, 1])
+    if cm.shape == (2, 2):
+        tn, fp, fn, tp = cm.ravel()
+        fpr = fp / (fp + tn) if (fp + tn) > 0 else 0.0
+        fnr = fn / (fn + tp) if (fn + tp) > 0 else 0.0
+    else:
+        fpr, fnr = 0.0, 0.0
+        
+    return {
+        'accuracy': float(acc),
+        'precision': float(prec),
+        'recall': float(rec),
+        'f1': float(f1),
+        'roc_auc': float(auc) if not np.isnan(auc) else None,
+        'fpr': float(fpr),
+        'fnr': float(fnr)
+    }
+
+def evaluate_subgroup_ml_fairness(df, features, model, y_true_col='RiskPerformance', subgroup_col='Subgroup'):
+    """
+    Evaluates ML performance separately for thin-file, thick-file, and other subgroups.
+    Computes subgroup Recall, FPR, FNR, and detects disparate degradation.
+    """
+    results = {}
+    subgroups = df[subgroup_col].dropna().unique()
+    
+    for grp in subgroups:
+        sub_df = df[df[subgroup_col] == grp]
+        if len(sub_df) == 0:
+            continue
+            
+        X = sub_df[features]
+        y_true = sub_df[y_true_col]
+        y_pred = model.predict(X)
+        y_prob = model.predict_proba(X)[:, 1] if hasattr(model, 'predict_proba') else None
+        
+        metrics = compute_classification_metrics(y_true, y_pred, y_prob)
+        metrics['sample_size'] = int(len(sub_df))
+        results[grp] = metrics
+        
+    return results
+
+def run_ml_drift_comparison(lr_t0, xgb_t0, lr_t1, xgb_t1, df_t0, df_t1, features, target='RiskPerformance'):
+    """
+    Full Stage 1 ML experiment:
+    Evaluates LR and XGBoost at:
+    1. Baseline (T0 test data evaluated with f0)
+    2. Drifted (T1 test data evaluated with un-retrained f0)
+    3. Retrained (T1 test data evaluated with retrained f1)
+    Across overall population and thin-file vs thick-file subgroups.
+    """
+    models = {
+        'LogisticRegression': {'baseline': lr_t0, 'retrained': lr_t1},
+        'XGBoost': {'baseline': xgb_t0, 'retrained': xgb_t1}
+    }
+    
+    comparison = {}
+    for name, m_dict in models.items():
+        m_t0 = m_dict['baseline']
+        m_t1 = m_dict['retrained']
+        
+        # 1. Baseline performance on T0
+        y_pred_t0 = m_t0.predict(df_t0[features])
+        y_prob_t0 = m_t0.predict_proba(df_t0[features])[:, 1] if hasattr(m_t0, 'predict_proba') else None
+        overall_t0 = compute_classification_metrics(df_t0[target], y_pred_t0, y_prob_t0)
+        subgroup_t0 = evaluate_subgroup_ml_fairness(df_t0, features, m_t0, target)
+        
+        # 2. Drifted performance on T1 using unretrained model f0
+        y_pred_drift = m_t0.predict(df_t1[features])
+        y_prob_drift = m_t0.predict_proba(df_t1[features])[:, 1] if hasattr(m_t0, 'predict_proba') else None
+        overall_drift = compute_classification_metrics(df_t1[target], y_pred_drift, y_prob_drift)
+        subgroup_drift = evaluate_subgroup_ml_fairness(df_t1, features, m_t0, target)
+        
+        # 3. Retrained performance on T1 using retrained model f1
+        y_pred_retrained = m_t1.predict(df_t1[features])
+        y_prob_retrained = m_t1.predict_proba(df_t1[features])[:, 1] if hasattr(m_t1, 'predict_proba') else None
+        overall_retrained = compute_classification_metrics(df_t1[target], y_pred_retrained, y_prob_retrained)
+        subgroup_retrained = evaluate_subgroup_ml_fairness(df_t1, features, m_t1, target)
+        
+        comparison[name] = {
+            'overall': {
+                'baseline_t0': overall_t0,
+                'drifted_t1_f0': overall_drift,
+                'retrained_t1_f1': overall_retrained
+            },
+            'subgroups': {
+                'baseline_t0': subgroup_t0,
+                'drifted_t1_f0': subgroup_drift,
+                'retrained_t1_f1': subgroup_retrained
+            }
+        }
+        
+    return comparison
+

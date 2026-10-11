@@ -9,9 +9,18 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')
 from src.data import load_and_clean_data, assign_subgroups, simulate_drift_split
 from src.models import train_baseline_models, train_retrained_models, save_model
 from src.explainers import generate_shap_attributions, setup_dice, generate_recourse
-from src.evaluation import evaluate_recourse_invalidation, compute_invalidation_rates, run_significance_tests, output_results
+from src.evaluation import (
+    evaluate_recourse_invalidation,
+    compute_invalidation_rates,
+    run_significance_tests,
+    output_results,
+    run_ml_drift_comparison
+)
 
 def main():
+    print("="*60)
+    print("STAGE 1: ML FOUNDATION (Credit Risk Under Drift & Subgroup Fairness)")
+    print("="*60)
     print("Loading data...")
     dataset_path = 'data/raw/heloc_dataset.csv'
     if not os.path.exists(dataset_path):
@@ -31,9 +40,39 @@ def main():
     print("Training retrained models (T1)...")
     lr_t1, xgb_t1 = train_retrained_models(df_t1, features)
     
+    os.makedirs('results/models', exist_ok=True)
+    save_model(lr_t0, 'results/models/lr_t0.pkl')
+    save_model(lr_t1, 'results/models/lr_t1.pkl')
     save_model(xgb_t0, 'results/models/xgb_t0.pkl')
     save_model(xgb_t1, 'results/models/xgb_t1.pkl')
+
+    print("\n--- Evaluating Stage 1: ML Model Performance & Subgroup Fairness ---")
+    ml_comparison = run_ml_drift_comparison(lr_t0, xgb_t0, lr_t1, xgb_t1, df_t0, df_t1, features)
     
+    with open('results/ml_performance_comparison.json', 'w') as f:
+        json.dump(ml_comparison, f, indent=4)
+    print("Saved ML evaluation results to results/ml_performance_comparison.json")
+    
+    for m_name in ['LogisticRegression', 'XGBoost']:
+        print(f"\n[{m_name}] Overall ROC-AUC:")
+        print(f"  Baseline T0:          {ml_comparison[m_name]['overall']['baseline_t0']['roc_auc']:.4f}")
+        print(f"  Drifted T1 (unretrained): {ml_comparison[m_name]['overall']['drifted_t1_f0']['roc_auc']:.4f}")
+        print(f"  Retrained T1:         {ml_comparison[m_name]['overall']['retrained_t1_f1']['roc_auc']:.4f}")
+        
+        # Subgroup recall comparisons
+        subgroups = ml_comparison[m_name]['subgroups']
+        if 'thin-file' in subgroups['baseline_t0']:
+            tf_b = subgroups['baseline_t0']['thin-file']['recall']
+            tf_d = subgroups['drifted_t1_f0']['thin-file']['recall']
+            print(f"  Thin-File Recall:     Baseline={tf_b:.2%}, Drifted={tf_d:.2%}, Drop={tf_b - tf_d:.2%}")
+        if 'thick-file' in subgroups['baseline_t0']:
+            th_b = subgroups['baseline_t0']['thick-file']['recall']
+            th_d = subgroups['drifted_t1_f0']['thick-file']['recall']
+            print(f"  Thick-File Recall:    Baseline={th_b:.2%}, Drifted={th_d:.2%}, Drop={th_b - th_d:.2%}")
+
+    print("\n" + "="*60)
+    print("STAGE 2: XAI EXTENSION (SHAP Explanations & DiCE Recourse Invalidation)")
+    print("="*60)
     print("Generating SHAP attributions on T0 test sample...")
     # Use a small sample to speed up demo
     X_sample = df_t0[features].sample(min(100, len(df_t0)), random_state=42)
