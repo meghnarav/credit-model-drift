@@ -1,0 +1,182 @@
+[
+    {
+        "case_id": "CASE-001",
+        "subgroup": "thick-file",
+        "is_invalidated": true,
+        "t1_approval_probability": 0.3013264238834381,
+        "near_boundary": true,
+        "revolving_burden_target": 25.9,
+        "external_risk_target": 73.6
+    },
+    {
+        "case_id": "CASE-002",
+        "subgroup": "other",
+        "is_invalidated": false,
+        "t1_approval_probability": 0.500315248966217,
+        "near_boundary": true,
+        "revolving_burden_target": 31.1,
+        "external_risk_target": 93.4
+    },
+    {
+        "case_id": "CASE-003",
+        "subgroup": "thick-file",
+        "is_invalidated": false,
+        "t1_approval_probability": 0.677152156829834,
+        "near_boundary": true,
+        "revolving_burden_target": 50.0,
+        "external_risk_target": 93.6
+    },
+    {
+        "case_id": "CASE-004",
+        "subgroup": "other",
+        "is_invalidated": true,
+        "t1_approval_probability": 0.44163793325424194,
+        "near_boundary": true,
+        "revolving_burden_target": 19.0,
+        "external_risk_target": 90.8
+    },
+    {
+        "case_id": "CASE-005",
+        "subgroup": "other",
+        "is_invalidated": false,
+        "t1_approval_probability": 0.5656681060791016,
+        "near_boundary": true,
+        "revolving_burden_target": 16.7,
+        "external_risk_target": 90.2
+    },
+    {
+        "case_id": "CASE-006",
+        "subgroup": "thick-file",
+        "is_invalidated": false,
+        "t1_approval_probability": 0.7691673636436462,
+        "near_boundary": false,
+        "revolving_burden_target": 39.2,
+        "external_risk_target": 84.5
+    },
+    {
+        "case_id": "CASE-007",
+        "subgroup": "thin-file",
+        "is_invalidated": false,
+        "t1_approval_probability": 0.6300492286682129,
+        "near_boundary": true,
+        "revolving_burden_target": 3.0,
+        "external_risk_target": 93.6
+    },
+    {
+        "case_id": "CASE-008",
+        "subgroup": "other",
+        "is_invalidated": true,
+        "t1_approval_probability": 0.31584131717681885,
+        "near_boundary": true,
+        "revolving_burden_target": 47.6,
+        "external_risk_target": 83.7
+    },
+    {
+        "case_id": "CASE-009",
+        "subgroup": "thin-file",
+        "is_invalidated": true,
+        "t1_approval_probability": 0.1191892996430397,
+        "near_boundary": false,
+        "revolving_burden_target": 48.6,
+        "external_risk_target": 92.8
+    },
+    {
+        "case_id": "CASE-010",
+        "subgroup": "other",
+        "is_invalidated": false,
+        "t1_approval_probability": 0.6930638551712036,
+        "near_boundary": true,
+        "revolving_burden_target": 0.4,
+        "external_risk_target": 82.9
+    },
+    {
+        "case_id": "CASE-011",
+        "subgroup": "other",
+        "is_invalidated": true,
+        "t1_approval_probability": 0.2628585994243622,
+        "near_boundary": false,
+        "revolving_burden_target": 9.6,
+        "external_risk_target": 91.5
+    },
+    {
+        "case_id": "CASE-012",
+        "subgroup": "other",
+        "is_invalidated": true,
+        "t1_approval_probability": 0.37327250838279724,
+        "near_boundary": true,
+        "revolving_burden_target": 34.2,
+        "external_risk_target": 91.9
+    },
+    {
+        "case_id": "CASE-013",
+        "subgroup": "thick-file",
+        "is_invalidated": false,
+        "t1_approval_probability": 0.6954787969589233,
+        "near_boundary": true,
+        "revolving_burden_target": 15.4,
+        "external_risk_target": 89.3
+    },
+    {
+        "case_id": "CASE-014",
+        "subgroup": "thick-file",
+        "is_invalidated": false,
+        "t1_approval_probability": 0.7695803046226501,
+        "near_boundary": false,
+        "revolving_burden_target": 28.4,
+        "external_risk_target": 87.8
+    },
+    {
+        "case_id": "CASE-015",
+        "subgroup": "other",
+        "is_invalidated": true,
+        "t1_approval_probability": 0.2950703203678131,
+        "near_boundary": false,
+        "revolving_burden_target": 88.5,
+        "external_risk_target": 83.5
+    },
+    {
+        "case_id": "CASE-016",
+        "subgroup": "other",
+        "is_invalidated": false,
+        "t1_approval_probability": 0.8179965615272522,
+        "near_boundary": false,
+        "revolving_burden_target": 10.1,
+        "external_risk_target": 85.0
+    },
+    {
+        "case_id": "CASE-017",
+        "subgroup": "other",
+        "is_invalidated": false,
+        "t1_approval_probability": 0.8618811964988708,
+        "near_boundary": false,
+        "revolving_burden_target": 12.5,
+        "external_risk_target": 88.6
+    },
+    {
+        "case_id": "CASE-018",
+        "subgroup": "other",
+        "is_invalidated": false,
+        "t1_approval_probability": 0.6899966597557068,
+        "near_boundary": true,
+        "revolving_burden_target": 19.6,
+        "external_risk_target": 84.7
+    },
+    {
+        "case_id": "CASE-019",
+        "subgroup": "thick-file",
+        "is_invalidated": false,
+        "t1_approval_probability": 0.7107697129249573,
+        "near_boundary": false,
+        "revolving_burden_target": 37.2,
+        "external_risk_target": 84.1
+    },
+    {
+        "case_id": "CASE-020",
+        "subgroup": "thick-file",
+        "is_invalidated": true,
+        "t1_approval_probability": 0.33066803216934204,
+        "near_boundary": true,
+        "revolving_burden_target": 39.0,
+        "external_risk_target": 70.7
+    }
+]

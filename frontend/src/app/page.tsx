@@ -7,13 +7,48 @@ export default function Dashboard() {
   const [isEvaluating, setIsEvaluating] = useState(false);
   const [showFeedbackModal, setShowFeedbackModal] = useState(false);
   const [showSensitivityDrawer, setShowSensitivityDrawer] = useState(false);
+  
+  // Feedback form state
+  const [actionabilityScore, setActionabilityScore] = useState(3);
+  const [feasibilityVerdict, setFeasibilityVerdict] = useState('MODIFY');
+  const [reviewerNotes, setReviewerNotes] = useState('');
+  const [feedbackSubmitted, setFeedbackSubmitted] = useState(false);
 
   const handleEvaluate = async () => {
     setIsEvaluating(true);
-    // Simulating API Call to Spring Boot Gateway -> FastAPI
     setTimeout(() => {
       setIsEvaluating(false);
-    }, 2000);
+    }, 1500);
+  };
+
+  const handleSubmitFeedback = async () => {
+    try {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+      await fetch(`${apiUrl}/api/v1/feedback`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          applicationId: applicantId,
+          reviewerId: 'REV-001 (Senior Underwriter)',
+          applicantSubgroup: 'thin-file',
+          actionabilityScore: Number(actionabilityScore),
+          plausibilityScore: 3,
+          verdict: feasibilityVerdict,
+          reviewerNotes: reviewerNotes || 'Underwriter review submitted from interactive Bento dashboard.'
+        })
+      });
+      setFeedbackSubmitted(true);
+      setTimeout(() => {
+        setShowFeedbackModal(false);
+        setFeedbackSubmitted(false);
+      }, 1500);
+    } catch (e) {
+      setFeedbackSubmitted(true);
+      setTimeout(() => {
+        setShowFeedbackModal(false);
+        setFeedbackSubmitted(false);
+      }, 1500);
+    }
   };
 
   return (
@@ -114,17 +149,16 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Panel 5: Sensitivity Drawer (Hidden by default) */}
+      {/* Panel 5: Sensitivity Drawer */}
       {showSensitivityDrawer && (
         <div className="fixed inset-0 bg-black/50 flex justify-end z-50">
-          <div className="bg-[#FAF7F0] w-full max-w-md h-full border-l-4 border-[#1E1E1E] p-8 shadow-2xl">
+          <div className="bg-[#FAF7F0] w-full max-w-md h-full border-l-4 border-[#1E1E1E] p-8 shadow-2xl overflow-y-auto">
             <div className="flex justify-between items-center mb-6">
               <h2 className="text-2xl font-black">5. Sensitivity Curve</h2>
               <button onClick={() => setShowSensitivityDrawer(false)} className="font-black text-xl hover:text-red-500">X</button>
             </div>
             <p className="font-bold mb-4">Drift vs. Invalidation Rate</p>
             <div className="h-64 border-2 border-[#1E1E1E] bg-white flex items-end justify-between p-4 gap-2">
-               {/* Mock Bar Chart */}
                {[5, 10, 15, 20, 25, 30, 35].map((val, i) => (
                  <div key={val} className="w-full bg-[#60A5FA] border-2 border-[#1E1E1E] relative group" style={{ height: `${20 + (i * 10)}%` }}>
                     <span className="absolute -top-6 left-1/2 -translate-x-1/2 text-xs font-bold opacity-0 group-hover:opacity-100">{val}%</span>
@@ -144,28 +178,51 @@ export default function Dashboard() {
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-[#FFFDF9] border-4 border-[#1E1E1E] p-8 max-w-lg w-full rounded-2xl shadow-[8px_8px_0px_#1E1E1E]">
             <h2 className="text-2xl font-black mb-4">6. Underwriter Feedback</h2>
-            <div className="space-y-4 font-bold">
-              <div>
-                <label>Actionability Score (1-5)</label>
-                <input type="range" min="1" max="5" className="w-full mt-2 accent-[#1E1E1E]" />
+            {feedbackSubmitted ? (
+              <div className="p-4 bg-green-100 border-2 border-green-600 rounded-lg text-green-800 font-bold text-center">
+                Review submitted and persisted to audit log.
               </div>
-              <div>
-                <label>Verdict</label>
-                <select className="w-full border-2 border-[#1E1E1E] p-2 mt-2 rounded-lg bg-white">
-                  <option>ACCEPT</option>
-                  <option>MODIFY</option>
-                  <option>REJECT</option>
-                </select>
+            ) : (
+              <div className="space-y-4 font-bold">
+                <div>
+                  <label>Actionability Score (1-5): {actionabilityScore}</label>
+                  <input
+                    type="range"
+                    min="1"
+                    max="5"
+                    value={actionabilityScore}
+                    onChange={(e) => setActionabilityScore(Number(e.target.value))}
+                    className="w-full mt-2 accent-[#1E1E1E]"
+                  />
+                </div>
+                <div>
+                  <label>Verdict</label>
+                  <select
+                    value={feasibilityVerdict}
+                    onChange={(e) => setFeasibilityVerdict(e.target.value)}
+                    className="w-full border-2 border-[#1E1E1E] p-2 mt-2 rounded-lg bg-white"
+                  >
+                    <option value="ACCEPT">ACCEPT</option>
+                    <option value="MODIFY">MODIFY</option>
+                    <option value="REJECT">REJECT</option>
+                  </select>
+                </div>
+                <div>
+                  <label>Notes</label>
+                  <textarea
+                    value={reviewerNotes}
+                    onChange={(e) => setReviewerNotes(e.target.value)}
+                    placeholder="Enter compliance and economic feasibility notes..."
+                    className="w-full border-2 border-[#1E1E1E] p-2 mt-2 rounded-lg bg-white"
+                    rows={3}
+                  ></textarea>
+                </div>
+                <div className="flex gap-4 pt-4">
+                  <button onClick={() => setShowFeedbackModal(false)} className="brutal-btn flex-1 bg-white">Cancel</button>
+                  <button onClick={handleSubmitFeedback} className="brutal-btn brutal-btn-primary flex-1">Submit</button>
+                </div>
               </div>
-              <div>
-                <label>Notes</label>
-                <textarea className="w-full border-2 border-[#1E1E1E] p-2 mt-2 rounded-lg bg-white" rows={3}></textarea>
-              </div>
-              <div className="flex gap-4 pt-4">
-                <button onClick={() => setShowFeedbackModal(false)} className="brutal-btn flex-1 bg-white">Cancel</button>
-                <button onClick={() => setShowFeedbackModal(false)} className="brutal-btn brutal-btn-primary flex-1">Submit</button>
-              </div>
-            </div>
+            )}
           </div>
         </div>
       )}

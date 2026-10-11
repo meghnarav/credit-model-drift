@@ -1,0 +1,8 @@
+parameter,effect_on_gap
+Drift Delta (Δ = 0.35 vs 0.05),32.5
+Subgroup Cutoff (Q20 vs Q30),14.2
+Actionable Set (1 vs 3 Features),11.8
+XGBoost Depth (6 vs 2),9.4
+Imputation Mode (Indicator vs Zero),-4.6
+DiCE Total CFs (k = 3 vs 1),-6.2
+LR Regularization C (10 vs 0.01),3.1

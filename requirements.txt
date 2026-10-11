@@ -9,3 +9,6 @@ pandas
 numpy
 fastapi
 uvicorn
+matplotlib
+seaborn
+httpx

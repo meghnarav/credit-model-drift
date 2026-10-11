@@ -1,128 +1,149 @@
-# Credit Risk Prediction Under Model Drift: Evaluating Robustness and Subgroup Fairness
-> **Extended into Explainable AI (XAI):** *On the Fragility of Algorithmic Recourse: Evaluating Subgroup-Differentiated Counterfactual Invalidation Under Credit Model Drift*
+# Credit Risk Prediction Under Model Drift: Evaluating Robustness, Subgroup Fairness, and Algorithmic Recourse
+
+[![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.110+-green.svg)](https://fastapi.tiangolo.com)
+[![Next.js 15](https://img.shields.io/badge/Next.js-15-black.svg)](https://nextjs.org/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
+This repository contains the complete experimental framework, microservices architecture, and interactive dashboard for the research paper: **"On the Fragility of Algorithmic Recourse: Evaluating Subgroup-Differentiated Counterfactual Invalidation Under Credit Model Drift"**.
 
 ---
 
-## 📌 Executive Summary & Project Progression
+## 🏛️ System Architecture
 
-This research project investigates the robustness, subgroup fairness, and algorithmic recourse stability of machine learning models deployed for credit scoring under non-stationary distributions.
+```mermaid
+graph TD
+    subgraph Data & Stratification
+        D[FICO HELOC Raw Dataset] --> Clean[Sanitize Special Codes -9/-8/-7]
+        Clean --> Sub[Subgroup Partitioning: Thin-File vs Thick-File]
+        Sub --> Drift[Covariate Shift on Revolving Burden: Δ in 0.05..0.35]
+    end
 
-The project is structured in two tightly integrated phases:
-1. **Stage 1: Foundational Machine Learning & Subgroup Fairness Study**
-   - Evaluates credit-risk classification models under baseline and controlled macroeconomic drift conditions.
-   - Quantifies whether model performance deteriorates uniformly or disproportionately harms vulnerable subgroups (particularly **thin-file** applicants with short credit histories and few trade lines).
-2. **Stage 2: Explainable AI (XAI) & Counterfactual Recourse Invalidation Extension**
-   - Evaluates whether feature attributions (SHAP) and actionable recommendations given to rejected applicants (DiCE counterfactual recourse) remain valid once models are retrained ($f_0 \to f_1$).
-   - Discloses that recourse invalidation is subgroup-differentiated (e.g., thin-file applicants face a **66.7%** recourse invalidation rate vs. **20.0%** for thick-file applicants, $p < 0.05$).
+    subgraph Multi-Seed ML Pipeline
+        Drift --> T0[T0 Baseline Data]
+        Drift --> T1[T1 Drifted Data]
+        T0 --> M0[Train f0: Logistic Regression & XGBoost]
+        T1 --> M1[Train f1 Retrained: Logistic Regression & XGBoost]
+        M0 --> Eval[Evaluate f0 on T0 and f0 on T1]
+        M1 --> EvalRetrain[Evaluate f1 on T1]
+    end
 
----
+    subgraph Explainable AI Layer
+        M0 --> SHAP0[SHAP Feature Attributions f0]
+        M1 --> SHAP1[SHAP Feature Attributions f1]
+        SHAP0 & SHAP1 --> Stab[Attribution Rank Correlation & Stability]
+        M0 --> DiCE[DiCE Optimization for Denied Applicants]
+        DiCE --> Rec[Prescribe Actionable Recourse x*]
+        Rec --> InvCheck{Evaluate under f1: f1 x* == 0?}
+        InvCheck -->|Invalidated| AIR[Aggregate & Subgroup Invalidation Rates]
+        InvCheck -->|Valid| Conf[Confirmed Recourse]
+    end
 
-## 🎯 Stage 1: Machine Learning Foundation
-
-### 1. Problem Statement
-Credit-risk models are periodically retrained as economic conditions and applicant populations evolve. However, aggregate metrics (such as population-level ROC-AUC or Accuracy) often conceal subgroup-specific degradation. When macro conditions shift, models may degrade silently on applicants with limited credit footprints, amplifying systemic credit denial.
-
-### 2. Dataset: FICO HELOC (Home Equity Line of Credit)
-An anonymized dataset containing real-world credit application attributes and risk outcomes:
-- **Target (`RiskPerformance`)**: Binary label (`Bad` = 0 [Denied / 90+ days past due], `Good` = 1 [Approved]).
-- **Key Features**: `ExternalRiskEstimate`, `MSinceOldestTradeOpen`, `NumTotalTrades`, `NumSatisfactoryTrades`, `NetFractionRevolvingBurden`, delinquencies, and inquiry counts.
-- **Data Preprocessing & Special Negative Codes**:
-  - `-9`: No Bureau Record (imputed via feature medians for downstream classifiers).
-  - `-8`: Not Applicable / Structural Zero (mapped to zero).
-  - `-7`: Condition Not Met (mapped to zero counts/durations).
-
-### 3. Subgroup Definitions
-Applicants are stratified based on their credit depth and maturity:
-- **Thin-File / Short Credit History**: Bottom quartile of credit history length (`MSinceOldestTradeOpen` $\le Q_{25}$) and trade counts (`NumTotalTrades` $\le Q_{25}$).
-- **Thick-File**: Applicants at or above median credit history (`MSinceOldestTradeOpen` $\ge Q_{50}$) and trades (`NumTotalTrades` $\ge Q_{50}$).
-- **Other**: Intermediate profile applicants.
-
-### 4. Controlled Drift Simulation
-- **Covariate Shift**: Biased resampling on `NetFractionRevolvingBurden` simulating tightening macroeconomic credit conditions and surging credit card utilization.
-- Baseline distribution ($T_0$) vs. drifted distribution ($T_1$).
-
-### 5. Dual Model Classifiers
-- **Logistic Regression**: Scaled linear benchmark with calibrated probabilities.
-- **XGBoost**: Non-linear gradient boosted tree classifier capturing complex feature interactions.
-
-### 6. Evaluated ML Metrics
-- **Overall**: Accuracy, Precision, Recall, F1-Score, and ROC-AUC across $T_0$, drifted $T_1$ with $f_0$, and retrained $T_1$ with $f_1$.
-- **Subgroup Fairness**: Group-level Recall, False Positive Rate (FPR), and False Negative Rate (FNR) to identify disparate error rates.
-
----
-
-## 🔬 Stage 2: XAI Extension (SHAP & DiCE Recourse)
-
-### 1. Feature Attribution Drift (SHAP)
-- Explains model decisions using `shap.LinearExplainer` (Logistic Regression) and `shap.TreeExplainer` (XGBoost).
-- Measures whether the relative importance of financial indicators shifts between baseline $f_0$ and retrained $f_1$.
-
-### 2. Algorithmic Recourse Generation (DiCE)
-- For applicants denied credit under baseline $f_0(x) = 0$, Diverse Counterfactual Explanations (DiCE) generate minimum-effort changes $x^*$ such that $f_0(x^*) = 1$.
-- Enforces actionable features (e.g. lowering `NetFractionRevolvingBurden`, raising `NumSatisfactoryTrades`).
-
-### 3. Subgroup Recourse Invalidation Rate (SIR)
-- Measures whether the promised recourse still yields approval under the retrained policy $f_1(x^*)$.
-- **Aggregate Invalidation Rate (AIR)**: $\mathbb{E}[ \mathbb{I}(f_1(x^*) = 0) ]$
-- **Disparity**: Demonstrates that thin-file applicants experience statistically significant higher invalidation than thick-file applicants.
-
-### 4. Statistical Significance & Action Cost
-- **Two-Proportion Z-Test & Fisher's Exact Test**: Confirms subgroup invalidation disparities are statistically significant ($p < 0.05$).
-- **Normalized $L_1$ Action Cost Distance**: Measures the distance between original features and counterfactual targets, proving thin-file applicants face higher barriers to re-qualification under drift.
-
----
-
-## 🏗️ Polyglot Architecture & Microservices
-
-The repository is organized into three production-ready services:
-
-```text
-├── ml-engine/ (src/)       # Python 3.11 + FastAPI + XGBoost + Scikit-Learn + SHAP + DiCE-ML
-├── api-gateway/            # Java 21 + Spring Boot 3 + PostgreSQL/H2 JPA Audit Trail
-├── frontend/               # Next.js 15 + React 19 + Tailwind CSS v4 (Soft Neo-Brutalist Dashboard)
-├── data/raw/               # FICO HELOC data storage
-├── scripts/                # Automated experiment pipelines (run_pipeline.py)
-└── docker-compose.yml      # Orchestration across all services and PostgreSQL 16
+    subgraph Polyglot Production Stack
+        M1 --> API[ml-engine FastAPI: Port 8000]
+        API --> Gate[api-gateway Spring Boot 3: Port 8080]
+        Gate --> DB[(PostgreSQL 16: Audit Trail)]
+        Gate --> UI[client-ui Next.js 15: Port 3000]
+        UI --> Hum[Underwriter Human Feedback Loop]
+    end
 ```
 
-### 1. `ml-engine` (FastAPI)
-- Exposes high-throughput prediction and attribution endpoints (`/api/v1/predict`, `/api/v1/recourse`).
-- Asynchronous task worker handling heavy counterfactual optimization without blocking API gateway timeouts.
-- Serves drift sensitivity sweeps (`/api/v1/metrics/sensitivity`) and boundary-jitter failure profilers (`/api/v1/metrics/failure-cases`).
+---
 
-### 2. `api-gateway` (Spring Boot 3)
-- Enterprise audit trail for financial compliance.
-- JPA entities tracking loan applications, counterfactual recourse plans, expert underwriter feedback, and invalidation statuses.
+## 🔬 Dataset & Preprocessing
 
-### 3. `frontend` (Next.js 15)
-- **Soft Neo-Brutalist Bento Grid Dashboard**:
-  - Applicant Profile Card (features & thin/thick file indicator)
-  - Real-time Approval Probability & Recourse Reliability Score
-  - Interactive SHAP Waterfall / Feature Attribution breakdown
-  - Side-by-side DiCE Action Plan with recovery delta indicators
-  - Drift Sensitivity Stress-Tester ($\delta \in [0.05, 0.35]$)
-  - Underwriter Compliance & Override Modal
+- **Dataset:** Real-world anonymized FICO Home Equity Line of Credit (**HELOC**) dataset ($N = 10,459$).
+- **Target (`RiskPerformance`):** Binary classification:
+  - `Bad` ($0$ / Denied): $\ge 90$ days past due delinquency.
+  - `Good` ($1$ / Approved): Satisfactory credit repayment performance.
+- **Special Financial Negative Codes:**
+  - `-9` (*No Bureau Record*): Imputed via column median (tested against zero & missing indicator in sensitivity suite).
+  - `-8` (*Not Applicable / Structural Zero*): Mapped to $0$.
+  - `-7` (*Condition Not Met*): Mapped to $0$ counts/durations.
+- **Subgroup Stratification:**
+  - **Thin-File / Short Credit History ($12.6\%$):** Bottom quartile credit history length (`MSinceOldestTradeOpen` $\le Q_{25}$) and trade lines (`NumTotalTrades` $\le Q_{25}$).
+  - **Thick-File ($35.4\%$):** At or above median credit history ($\ge Q_{50}$) and trade volume ($\ge Q_{50}$).
+  - **Other ($52.0\%$):** Intermediate borrowers.
 
 ---
 
-## 🚀 Running the Experiments & Services
+## 🧪 Experimental Protocol & Procedural Steps
 
-### Quickstart Pipeline
+The entire experiment runs deterministically with **one command**:
+
 ```bash
-# Set up Python environment
+python scripts/run_pipeline.py
+```
+
+### Execution Steps Executed by the Pipeline:
+1. **Data Ingestion & Cleaning:** Loads FICO HELOC, maps target to $\{0, 1\}$, handles special codes, and assigns subgroup tags.
+2. **Multi-Seed Base Model Training ($5$ Seeds: $42, 101, 202, 303, 404$):**
+   - Fits standard-scaled **Logistic Regression** and gradient-boosted **XGBoost** on $T_0$.
+   - Evaluates on $T_0$, drifted $T_1$ with unretrained $f_0$, and drifted $T_1$ with retrained $f_1$.
+   - Computes Mean $\pm$ Standard Deviation and $95\%$ Bootstrap CIs for Accuracy, Precision, Recall, F1, ROC-AUC, FPR, FNR across all groups.
+   - Generates [`Fig_01_roc_pr_curves`](file:///Users/meghna/Documents/Studio/github/credit-model-drift/results/figures/Fig_01_roc_pr_curves.png), [`Fig_02_confusion_matrices`](file:///Users/meghna/Documents/Studio/github/credit-model-drift/results/figures/Fig_02_confusion_matrices.png), and [`Fig_03_calibration_curves`](file:///Users/meghna/Documents/Studio/github/credit-model-drift/results/figures/Fig_03_calibration_curves.png).
+3. **XAI Attribution & Recourse Evaluation:**
+   - Computes local/global TreeSHAP and LinearSHAP values for $f_0$ vs $f_1$.
+   - Generates DiCE counterfactuals for denied applicants under actionable constraints (`NetFractionRevolvingBurden`, `ExternalRiskEstimate`).
+   - Evaluates Aggregate and Subgroup Invalidation Rates (AIR, SIR), normalized $L_1$ action cost distance, proximity, and sparsity.
+   - Runs Two-Proportion Z-tests, Fisher's exact tests, Cohen's $h$ effect sizes, and bootstrap CIs.
+4. **Comprehensive Sensitivity & Ablation Suite:**
+   - Drift magnitude sweep $\Delta \in [0.05, 0.35]$ step $0.05$ ([`Fig_04_invalidation_vs_drift_sweep`](file:///Users/meghna/Documents/Studio/github/credit-model-drift/results/figures/Fig_04_invalidation_vs_drift_sweep.png)).
+   - Alternate drift scenarios (label shift & feature shifts on tenure and inquiries).
+   - Hyperparameter sensitivity and 2-parameter interaction heatmap ([`Fig_06_two_param_heatmap`](file:///Users/meghna/Documents/Studio/github/credit-model-drift/results/figures/Fig_06_two_param_heatmap.png)).
+   - Subgroup threshold ($Q_{20}, Q_{25}, Q_{30}$) and imputation sensitivity.
+   - Tornado chart ranking parameters by effect on the invalidation gap ([`Fig_05_tornado_sensitivity_ranking`](file:///Users/meghna/Documents/Studio/github/credit-model-drift/results/figures/Fig_05_tornado_sensitivity_ranking.png)).
+5. **Boundary-Jitter Failure Profiling:**
+   - Identifies instances near the decision boundary ($\pm 0.20$ probability).
+   - Generates representative local SHAP waterfall figures ([`Fig_08`](file:///Users/meghna/Documents/Studio/github/credit-model-drift/results/figures/)) for failure cases.
+6. **Human Expert Feedback (IML):**
+   - Synthesizes underwriter audit evaluations across 3 reviewer personas.
+   - Exports [`results/expert_feedback.csv`](file:///Users/meghna/Documents/Studio/github/credit-model-drift/results/expert_feedback.csv) and [`Fig_09_expert_feedback_summary`](file:///Users/meghna/Documents/Studio/github/credit-model-drift/results/figures/Fig_09_expert_feedback_summary.png).
+
+---
+
+## 📊 Summary Results Table (Mean ± Std [95% CI] over 5 Seeds)
+
+| Evaluation Regime | Model | Overall ROC-AUC | Thin-File Recall | Thick-File Recall | Thin-File FNR | AIR (Invalidation) |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| **$T_0$ Baseline** | Logistic Reg. | $0.781 \pm 0.003$ | $0.539 \pm 0.017$ | $0.737 \pm 0.005$ | $0.461 \pm 0.017$ | — |
+| **$T_0$ Baseline** | XGBoost | $0.854 \pm 0.001$ | $0.598 \pm 0.030$ | $0.768 \pm 0.008$ | $0.402 \pm 0.030$ | — |
+| **$T_1$ Drift (Unretrained $f_0$)** | Logistic Reg. | $0.772 \pm 0.003$ | $0.257 \pm 0.015$ | $0.492 \pm 0.024$ | $0.743 \pm 0.015$ | — |
+| **$T_1$ Drift (Unretrained $f_0$)** | XGBoost | $0.765 \pm 0.004$ | $0.281 \pm 0.029$ | $0.495 \pm 0.028$ | $0.719 \pm 0.029$ | — |
+| **$T_1$ Drift (Retrained $f_1$)** | Logistic Reg. | $0.778 \pm 0.003$ | $0.276 \pm 0.028$ | $0.515 \pm 0.035$ | $0.724 \pm 0.028$ | $36.4\%$ |
+| **$T_1$ Drift (Retrained $f_1$)** | XGBoost | $0.904 \pm 0.006$ | $0.433 \pm 0.049$ | $0.689 \pm 0.042$ | $0.567 \pm 0.049$ | $40.9\%$ |
+
+*See [`RESULTS_SUMMARY.md`](file:///Users/meghna/Documents/Studio/github/credit-model-drift/RESULTS_SUMMARY.md) for full provenance and all 13 output tables.*
+
+---
+
+## 🚀 How to Run
+
+### Local Setup & Testing
+```bash
+# 1. Activate virtual environment
 python -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
 
-# Run Stage 1 ML Benchmark & Stage 2 XAI Recourse Invalidation Pipeline
+# 2. Run unit tests
+pytest tests/
+
+# 3. Execute complete end-to-end experimental pipeline
 python scripts/run_pipeline.py
+
+# 4. Test live API endpoints via curl
+./scripts/sample_requests.sh http://localhost:8000
 ```
 
-### Run Full Stack with Docker Compose
+### Docker Orchestration (Fresh Clone Ready)
 ```bash
+# Copy environment configuration
+cp .env.example .env
+
+# Build and run all microservices with healthchecks
 docker-compose up --build
 ```
-- **Web Dashboard**: `http://localhost:3000`
-- **Core Backend**: `http://localhost:8080`
-- **ML Engine API**: `http://localhost:8000/docs`
-
+- **Web UI:** `http://localhost:3000`
+- **Core API Gateway:** `http://localhost:8080`
+- **ML Engine (Swagger Docs):** `http://localhost:8000/docs`

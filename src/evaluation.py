@@ -56,43 +56,98 @@ def compute_invalidation_rates(invalidation_flags, subgroups=None):
                 
     return air, sir
 
-def run_significance_tests(invalidation_flags, subgroups, group_a='thin-file', group_b='thick-file'):
+def run_significance_tests(
+    invalidation_flags, 
+    subgroups, 
+    group_a='thin-file', 
+    group_b='thick-file',
+    n_bootstrap=1000,
+    seed=42
+):
     """
-    Runs a two-proportion Z-test and Fisher's exact test to assess whether the difference 
-    in invalidation rates between subgroups is statistically significant (p < 0.05).
+    Runs a two-proportion Z-test and Fisher's exact test with:
+    - Exact sample counts
+    - Effect size (Cohen's h)
+    - Non-parametric bootstrap 95% Confidence Interval for difference in proportions
+    - Sample size warning if n < 30
     """
+    invalidation_flags = np.array(invalidation_flags)
+    subgroups = np.array(subgroups)
+    
     idx_a = (subgroups == group_a)
     idx_b = (subgroups == group_b)
     
-    count_a = np.sum(invalidation_flags[idx_a])
-    nobs_a = np.sum(idx_a)
+    count_a = int(np.sum(invalidation_flags[idx_a]))
+    nobs_a = int(np.sum(idx_a))
     
-    count_b = np.sum(invalidation_flags[idx_b])
-    nobs_b = np.sum(idx_b)
+    count_b = int(np.sum(invalidation_flags[idx_b]))
+    nobs_b = int(np.sum(idx_b))
     
-    # 1. Z-test for proportions
+    prop_a = count_a / nobs_a if nobs_a > 0 else np.nan
+    prop_b = count_b / nobs_b if nobs_b > 0 else np.nan
+    
+    sample_size_warning = None
+    if nobs_a < 30 or nobs_b < 30:
+        sample_size_warning = f"Warning: Small sample size (n_{group_a}={nobs_a}, n_{group_b}={nobs_b} < 30). Z-test asymptotic assumptions may be fragile; rely on Fisher's exact test."
+    
     counts = np.array([count_a, count_b])
     nobs = np.array([nobs_a, nobs_b])
     
+    pval_z, pval_fisher = np.nan, np.nan
+    cohens_h = np.nan
+    ci_lower, ci_upper = np.nan, np.nan
+    
     if nobs_a > 0 and nobs_b > 0:
-        stat_z, pval_z = proportions_ztest(counts, nobs)
-        
-        # 2. Fisher's exact test
-        # Contingency table: [[invalidated_A, valid_A], [invalidated_B, valid_B]]
+        try:
+            stat_z, pval_z = proportions_ztest(counts, nobs)
+        except Exception:
+            pval_z = np.nan
+            
+        # Fisher's exact test
         table = [
             [count_a, nobs_a - count_a],
             [count_b, nobs_b - count_b]
         ]
-        res_fisher = stats.fisher_exact(table)
-        pval_fisher = res_fisher[1]
-    else:
-        stat_z, pval_z, pval_fisher = np.nan, np.nan, np.nan
+        try:
+            res_fisher = stats.fisher_exact(table)
+            pval_fisher = res_fisher[1]
+        except Exception:
+            pval_fisher = np.nan
+            
+        # Cohen's h = 2 * (arcsin(sqrt(p1)) - arcsin(sqrt(p2)))
+        p1 = min(max(prop_a, 1e-4), 1 - 1e-4)
+        p2 = min(max(prop_b, 1e-4), 1 - 1e-4)
+        cohens_h = float(2 * (np.arcsin(np.sqrt(p1)) - np.arcsin(np.sqrt(p2))))
+        
+        # Bootstrap 95% CI for difference (p_a - p_b)
+        rng = np.random.default_rng(seed)
+        diffs = []
+        flags_a = invalidation_flags[idx_a]
+        flags_b = invalidation_flags[idx_b]
+        for _ in range(n_bootstrap):
+            b_sample_a = rng.choice(flags_a, size=nobs_a, replace=True)
+            b_sample_b = rng.choice(flags_b, size=nobs_b, replace=True)
+            diffs.append(np.mean(b_sample_a) - np.mean(b_sample_b))
+        ci_lower = float(np.percentile(diffs, 2.5))
+        ci_upper = float(np.percentile(diffs, 97.5))
         
     return {
-        'z_test_pvalue': pval_z,
-        'fisher_exact_pvalue': pval_fisher,
+        'group_a': group_a,
+        'group_b': group_b,
+        'count_a': count_a,
+        'nobs_a': nobs_a,
+        'prop_a': float(prop_a) if not np.isnan(prop_a) else None,
+        'count_b': count_b,
+        'nobs_b': nobs_b,
+        'prop_b': float(prop_b) if not np.isnan(prop_b) else None,
+        'z_test_pvalue': float(pval_z) if not np.isnan(pval_z) else None,
+        'fisher_exact_pvalue': float(pval_fisher) if not np.isnan(pval_fisher) else None,
+        'cohens_h_effect_size': float(cohens_h) if not np.isnan(cohens_h) else None,
+        'bootstrap_ci_95': [ci_lower, ci_upper] if not np.isnan(ci_lower) else None,
+        'warning': sample_size_warning,
         'significant_difference': bool((pval_z < 0.05) or (pval_fisher < 0.05))
     }
+
 
 def output_results(air, sir, tests, output_dir='.'):
     """

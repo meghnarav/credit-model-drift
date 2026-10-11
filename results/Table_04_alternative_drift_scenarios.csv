@@ -1,0 +1,7 @@
+drift_scenario,seed,model,accuracy,recall,roc_auc
+Label / Prior Shift (Outcome Ratio),42,XGBoost,0.7270938729623384,0.6589090909090909,
+Label / Prior Shift (Outcome Ratio),101,XGBoost,0.725407532321529,0.6545454545454545,
+Covariate Shift on MSinceOldestTradeOpen,42,XGBoost,0.7115195274040039,0.7385074626865672,
+Covariate Shift on MSinceOldestTradeOpen,101,XGBoost,0.7200525106662291,0.7349327091866589,
+Covariate Shift on NumInqLast6M,42,XGBoost,0.7255711533168181,0.6156373193166885,
+Covariate Shift on NumInqLast6M,101,XGBoost,0.7214423341590972,0.5994848679974243,

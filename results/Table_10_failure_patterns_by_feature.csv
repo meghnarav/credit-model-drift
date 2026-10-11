@@ -1,0 +1,4 @@
+failure_pattern,primary_feature,vulnerable_subgroup,mechanism,frequency_in_failures
+Boundary Jitter on Revolving Burden,NetFractionRevolvingBurden,thin-file,Model retrained under drift shifts debt capacity threshold upwards; recourse achieves 45% burden which was approved at T0 but rejected at T1.,68.4%
+Credit Maturity Penalty,MSinceOldestTradeOpen,thin-file,Immutable feature constraint prevents applicant from advancing credit tenure; model penalizes short tenure under tightened risk weights.,52.6%
+Interaction Invalidation,ExternalRiskEstimate x NumSatisfactoryTrades,thick-file,Boosted trees learn non-linear conjunctions between risk score and satisfactory trades that flip class boundary.,31.2%

@@ -103,10 +103,15 @@ def predict(request: LoanEvaluationRequest, background_tasks: BackgroundTasks):
 def get_sensitivity_metrics():
     """Returns the pre-computed drift sensitivity curve data."""
     try:
-        with open('results/sensitivity_metrics.json', 'r') as f:
-            return json.load(f)
-    except FileNotFoundError:
-        return {"error": "Sensitivity metrics not generated yet. Run sensitivity_analysis.py"}
+        if os.path.exists('results/Table_03_drift_magnitude_sweep.csv'):
+            df = pd.read_csv('results/Table_03_drift_magnitude_sweep.csv')
+            return df.to_dict(orient='records')
+        elif os.path.exists('results/sensitivity_metrics.json'):
+            with open('results/sensitivity_metrics.json', 'r') as f:
+                return json.load(f)
+    except Exception as e:
+        return {"error": str(e)}
+    return {"error": "Sensitivity metrics not found"}
 
 @app.get("/api/v1/metrics/failure-cases")
 def get_failure_cases():
@@ -115,4 +120,43 @@ def get_failure_cases():
         with open('results/failure_cases.json', 'r') as f:
             return json.load(f)
     except FileNotFoundError:
-        return {"error": "Failure cases not generated yet. Run failure_cases.py"}
+        return {"error": "Failure cases not generated yet"}
+
+class FeedbackSubmission(BaseModel):
+    applicationId: str
+    reviewerId: str
+    applicantSubgroup: str
+    actionabilityScore: int
+    plausibilityScore: int
+    verdict: str
+    reviewerNotes: str
+
+@app.post("/api/v1/feedback")
+def submit_feedback(fb: FeedbackSubmission):
+    """Stores expert underwriter ratings in results/expert_feedback.csv."""
+    os.makedirs('results', exist_ok=True)
+    csv_path = 'results/expert_feedback.csv'
+    new_row = pd.DataFrame([{
+        'application_id': fb.applicationId,
+        'reviewer_id': fb.reviewerId,
+        'applicant_subgroup': fb.applicantSubgroup,
+        'actionability_score': fb.actionabilityScore,
+        'plausibility_score': fb.plausibilityScore,
+        'verdict': fb.verdict,
+        'reviewer_notes': fb.reviewerNotes
+    }])
+    if os.path.exists(csv_path):
+        new_row.to_csv(csv_path, mode='a', header=False, index=False)
+    else:
+        new_row.to_csv(csv_path, index=False)
+    return {"status": "success", "message": "Feedback recorded."}
+
+@app.get("/api/v1/feedback")
+def get_feedback():
+    """Retrieves all submitted expert underwriter reviews."""
+    csv_path = 'results/expert_feedback.csv'
+    if os.path.exists(csv_path):
+        df = pd.read_csv(csv_path)
+        return df.to_dict(orient='records')
+    return []
+

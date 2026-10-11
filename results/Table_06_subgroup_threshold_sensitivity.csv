@@ -1,0 +1,4 @@
+quantile_cutoff,n_thin_file,n_thick_file,pct_thin_file,simulated_sir_thin
+Q20,992,3700,9.5%,0.62
+Q25,1319,3700,12.6%,0.6
+Q30,1608,3700,15.4%,0.58

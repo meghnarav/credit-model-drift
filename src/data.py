@@ -1,12 +1,17 @@
 import pandas as pd
 import numpy as np
 
-def load_and_clean_data(file_path: str) -> pd.DataFrame:
+def load_and_clean_data(file_path: str, imputation_strategy: str = 'median') -> pd.DataFrame:
     """
     Loads raw FICO HELOC dataset and sanitizes special negative codes.
-    -9: Imputed with NaN initially, then handled by model or median imputation.
-    -8: Treated as structural zero (mapped to 0).
-    -7: Mapped to 0 for counts/durations.
+    -9: No Bureau Record
+    -8: Not applicable / structural zero
+    -7: Condition not met (0 counts/durations)
+    
+    Imputation strategies for -9:
+    - 'median': replace with column median (default)
+    - 'zero': replace with 0
+    - 'indicator': replace with 0 and add an indicator column `<col>_is_missing`
     """
     df = pd.read_csv(file_path)
     
@@ -14,64 +19,102 @@ def load_and_clean_data(file_path: str) -> pd.DataFrame:
     if 'RiskPerformance' in df.columns:
         df['RiskPerformance'] = df['RiskPerformance'].map({'Bad': 0, 'Good': 1})
     
-    # Handle special codes
-    for col in df.columns:
-        if col != 'RiskPerformance':
-            # -8 -> 0 (Not applicable -> structural zero)
-            df.loc[df[col] == -8, col] = 0
-            # -7 -> 0 (Condition not met -> 0 counts/durations)
-            df.loc[df[col] == -7, col] = 0
-            # -9 -> NaN (No Bureau Record) - for simplicity here, we'll impute with median later
+    special_cols = [c for c in df.columns if c != 'RiskPerformance']
+    
+    # Handle structural codes first
+    for col in special_cols:
+        # -8 -> structural zero
+        df.loc[df[col] == -8, col] = 0
+        # -7 -> condition not met
+        df.loc[df[col] == -7, col] = 0
+        
+    if imputation_strategy == 'indicator':
+        for col in special_cols:
+            df[f'{col}_missing'] = (df[col] == -9).astype(int)
+            df.loc[df[col] == -9, col] = 0
+    elif imputation_strategy == 'zero':
+        for col in special_cols:
+            df.loc[df[col] == -9, col] = 0
+    else:  # 'median'
+        for col in special_cols:
             df.loc[df[col] == -9, col] = np.nan
-            
-    # Simple median imputation for -9s to allow standard classifiers to run
-    df.fillna(df.median(), inplace=True)
+        df.fillna(df.median(), inplace=True)
             
     return df
 
-def assign_subgroups(df: pd.DataFrame) -> pd.DataFrame:
+def assign_subgroups(df: pd.DataFrame, quantile_cutoff: float = 0.25) -> pd.DataFrame:
     """
     Stratifies applicants into 'thin-file', 'thick-file', or 'other'.
+    Allows variable cutoff (e.g., 0.20, 0.25, 0.30) for sensitivity analysis.
     """
-    p25_msince = df['MSinceOldestTradeOpen'].quantile(0.25)
-    p25_num = df['NumTotalTrades'].quantile(0.25)
+    p_low_msince = df['MSinceOldestTradeOpen'].quantile(quantile_cutoff)
+    p_low_num = df['NumTotalTrades'].quantile(quantile_cutoff)
     
-    p50_msince = df['MSinceOldestTradeOpen'].quantile(0.50)
-    p50_num = df['NumTotalTrades'].quantile(0.50)
+    p_high_msince = df['MSinceOldestTradeOpen'].quantile(0.50)
+    p_high_num = df['NumTotalTrades'].quantile(0.50)
     
     def get_group(row):
-        if row['MSinceOldestTradeOpen'] <= p25_msince and row['NumTotalTrades'] <= p25_num:
+        if row['MSinceOldestTradeOpen'] <= p_low_msince and row['NumTotalTrades'] <= p_low_num:
             return 'thin-file'
-        elif row['MSinceOldestTradeOpen'] >= p50_msince and row['NumTotalTrades'] >= p50_num:
+        elif row['MSinceOldestTradeOpen'] >= p_high_msince and row['NumTotalTrades'] >= p_high_num:
             return 'thick-file'
         return 'other'
         
     df['Subgroup'] = df.apply(get_group, axis=1)
     return df
 
-def simulate_drift_split(df: pd.DataFrame, target_col='RiskPerformance'):
+def simulate_drift_split(
+    df: pd.DataFrame, 
+    drift_feature: str = 'NetFractionRevolvingBurden',
+    delta: float = 0.25, 
+    drift_type: str = 'covariate',
+    seed: int = 42
+):
     """
-    Simulates covariate drift by creating a baseline (T0) and post-drift (T1) distribution.
-    Biased subsampling on NetFractionRevolvingBurden to simulate macroeconomic shift.
-    T1 will have a higher proportion of applicants with higher burden.
+    Simulates dataset drift:
+    - 'covariate': Biased subsampling on continuous feature (e.g. NetFractionRevolvingBurden or MSinceOldestTradeOpen or NumInqLast6M)
+    - 'label': Prior shift altering bad-to-good outcome proportions in T1
     """
-    # Define a threshold for high burden (e.g., 75th percentile)
-    threshold = df['NetFractionRevolvingBurden'].quantile(0.75)
+    rng = np.random.default_rng(seed)
     
-    high_burden = df[df['NetFractionRevolvingBurden'] >= threshold]
-    low_burden = df[df['NetFractionRevolvingBurden'] < threshold]
+    if drift_type == 'label':
+        # Prior/label shift: decrease approval rate in T1
+        good_mask = (df['RiskPerformance'] == 1)
+        bad_mask = (df['RiskPerformance'] == 0)
+        
+        # T0: balanced split
+        t0_good = df[good_mask].sample(frac=0.5, random_state=seed)
+        t0_bad = df[bad_mask].sample(frac=0.5, random_state=seed)
+        df_t0 = pd.concat([t0_good, t0_bad]).sample(frac=1.0, random_state=seed)
+        
+        # T1: drop good approvals by delta factor (e.g., severe credit freeze)
+        rem_good = df[good_mask].drop(t0_good.index)
+        rem_bad = df[bad_mask].drop(t0_bad.index)
+        
+        keep_good_frac = max(0.1, 0.8 - delta)
+        t1_good = rem_good.sample(frac=keep_good_frac, random_state=seed)
+        t1_bad = rem_bad.sample(frac=0.8, random_state=seed)
+        df_t1 = pd.concat([t1_good, t1_bad]).sample(frac=1.0, random_state=seed)
+        return df_t0, df_t1
+
+    # Covariate shift on specified feature
+    threshold = df[drift_feature].quantile(max(0.1, min(0.9, 0.5 + delta)))
     
-    # T0: more low burden (baseline)
-    t0_low = low_burden.sample(frac=0.6, random_state=42)
-    t0_high = high_burden.sample(frac=0.3, random_state=42)
-    df_t0 = pd.concat([t0_low, t0_high]).sample(frac=1, random_state=42)
+    high_burden = df[df[drift_feature] >= threshold]
+    low_burden = df[df[drift_feature] < threshold]
     
-    # T1: more high burden (macroeconomic stress)
-    t1_low = low_burden.drop(t0_low.index).sample(frac=0.5, random_state=42)
+    # T0: baseline has more low burden / favorable values
+    t0_low = low_burden.sample(frac=min(0.7, 0.5 + delta), random_state=seed)
+    t0_high = high_burden.sample(frac=max(0.15, 0.4 - delta), random_state=seed)
+    df_t0 = pd.concat([t0_low, t0_high]).sample(frac=1.0, random_state=seed)
+    
+    # T1: macroeconomic stress / shift
+    t1_low = low_burden.drop(t0_low.index).sample(frac=max(0.2, 0.6 - delta), random_state=seed)
     t1_high = high_burden.drop(t0_high.index)
-    df_t1 = pd.concat([t1_low, t1_high]).sample(frac=1, random_state=42)
+    df_t1 = pd.concat([t1_low, t1_high]).sample(frac=1.0, random_state=seed)
     
     return df_t0, df_t1
+
 
 if __name__ == "__main__":
     # Create dummy data for testing purposes if raw dataset doesn't exist
