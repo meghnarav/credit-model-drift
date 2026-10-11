@@ -46,3 +46,4 @@ APP-1014,REV-002 (Fair Lending Officer),thick-file,4,4,ACCEPT,Established repaym
 APP-1014,REV-003 (Risk Modeler),thick-file,4,4,ACCEPT,Established repayment history supports feasibility of revolving debt paydown.
 TEST-APP-001,TEST-REV,thin-file,4,3,ACCEPT,Automated unit test review
 TEST-APP-001,TEST-REV,thin-file,4,3,ACCEPT,Automated unit test review
+TEST-APP-001,TEST-REV,thin-file,4,3,ACCEPT,Automated unit test review

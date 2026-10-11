@@ -43,4 +43,29 @@ public class LoanApplicationController {
         
         return ResponseEntity.ok(response);
     }
+
+    @GetMapping("/cohort-summary")
+    public ResponseEntity<String> getCohortSummary() {
+        return ResponseEntity.ok(fastApiClient.getCohortSummary());
+    }
+
+    @GetMapping("/list")
+    public ResponseEntity<String> getApplicantsList(
+        @RequestParam(defaultValue = "1") int page,
+        @RequestParam(defaultValue = "50") int limit,
+        @RequestParam(required = false) String subgroup,
+        @RequestParam(required = false) String riskTier
+    ) {
+        return ResponseEntity.ok(fastApiClient.getCohortApplicants(page, limit, subgroup, riskTier));
+    }
+
+    @GetMapping("/analytics/curves")
+    public ResponseEntity<String> getCurves() {
+        return ResponseEntity.ok(fastApiClient.getAlePdpCurves());
+    }
+
+    @GetMapping("/analytics/cumulative-profiles")
+    public ResponseEntity<String> getCumulativeProfiles(@RequestParam(defaultValue = "APP-9824") String applicantId) {
+        return ResponseEntity.ok(fastApiClient.getCumulativeProfiles(applicantId));
+    }
 }

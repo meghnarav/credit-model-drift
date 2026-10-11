@@ -21,9 +21,46 @@ public class FastApiClient {
 
     public RecourseResponse evaluateAndGenerateRecourse(LoanEvaluationRequest request) {
         return restClient.post()
-            .uri("/predict") // Adjusted to match the FastAPI endpoint we created earlier, though a dedicated one could be made
+            .uri("/predict")
             .body(request)
             .retrieve()
             .body(RecourseResponse.class);
+    }
+
+    public String getCohortSummary() {
+        return restClient.get()
+            .uri("/api/v1/cohort/summary")
+            .retrieve()
+            .body(String.class);
+    }
+
+    public String getCohortApplicants(int page, int limit, String subgroup, String riskTier) {
+        return restClient.get()
+            .uri(uriBuilder -> uriBuilder
+                .path("/api/v1/cohort/applicants")
+                .queryParam("page", page)
+                .queryParam("limit", limit)
+                .queryParam("subgroup", subgroup != null ? subgroup : "ALL")
+                .queryParam("risk_tier", riskTier != null ? riskTier : "ALL")
+                .build())
+            .retrieve()
+            .body(String.class);
+    }
+
+    public String getAlePdpCurves() {
+        return restClient.get()
+            .uri("/api/v1/analytics/ale-pdp")
+            .retrieve()
+            .body(String.class);
+    }
+
+    public String getCumulativeProfiles(String applicantId) {
+        return restClient.get()
+            .uri(uriBuilder -> uriBuilder
+                .path("/api/v1/analytics/cumulative-profiles")
+                .queryParam("applicant_id", applicantId)
+                .build())
+            .retrieve()
+            .body(String.class);
     }
 }

@@ -124,3 +124,70 @@ def evaluate_counterfactual_quality(X_original, df_cfs, features_to_vary, contin
         "diversity": 0.0  # k=1 has 0 diversity
     }
 
+def compute_ale_pdp(model_t0, model_t1, X_sample, feature_name='NetFractionRevolvingBurden', grid_points=25):
+    """
+    Computes Partial Dependence (PDP) curves for a continuous feature across t0 and t1 models
+    to visualize how global decision boundaries shift under drift.
+    """
+    f_min = float(X_sample[feature_name].min())
+    f_max = float(X_sample[feature_name].max())
+    grid = np.linspace(f_min, f_max, grid_points)
+    
+    t0_curve = []
+    t1_curve = []
+    
+    X_temp = X_sample.copy()
+    for val in grid:
+        X_temp[feature_name] = val
+        if hasattr(model_t0, 'predict_proba'):
+            p0 = model_t0.predict_proba(X_temp)[:, 1].mean()
+        else:
+            p0 = model_t0.predict(X_temp).mean()
+            
+        if hasattr(model_t1, 'predict_proba'):
+            p1 = model_t1.predict_proba(X_temp)[:, 1].mean()
+        else:
+            p1 = model_t1.predict(X_temp).mean()
+            
+        t0_curve.append(float(p0))
+        t1_curve.append(float(p1))
+        
+    return {
+        "feature": feature_name,
+        "grid": [float(x) for x in grid],
+        "pdp_t0": t0_curve,
+        "pdp_t1": t1_curve
+    }
+
+def compute_cumulative_profile(model_t0, model_t1, applicant_row, features, feature_name='NetFractionRevolvingBurden', grid_points=30):
+    """
+    Computes Cumulative Profile / Ceteris Paribus path to approval for an individual applicant.
+    Varies feature_name while keeping all other attributes fixed, showing t0 vs t1 probabilities.
+    """
+    grid = np.linspace(0.0, 100.0, grid_points)
+    points = []
+    
+    row_df = pd.DataFrame([applicant_row[features]])
+    
+    for val in grid:
+        row_temp = row_df.copy()
+        row_temp[feature_name] = val
+        
+        p0 = model_t0.predict_proba(row_temp)[0][1] if hasattr(model_t0, 'predict_proba') else float(model_t0.predict(row_temp)[0])
+        p1 = model_t1.predict_proba(row_temp)[0][1] if hasattr(model_t1, 'predict_proba') else float(model_t1.predict(row_temp)[0])
+        
+        points.append({
+            "feature_val": round(float(val), 1),
+            "p_t0": round(float(p0), 3),
+            "p_t1": round(float(p1), 3),
+            "threshold": 0.50
+        })
+        
+    return {
+        "applicantId": applicant_row.get('applicantId', 'UNKNOWN'),
+        "feature": feature_name,
+        "current_val": float(applicant_row[feature_name]),
+        "curves": points
+    }
+
+
