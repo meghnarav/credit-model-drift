@@ -91,3 +91,26 @@ def test_api_feedback_endpoints():
     get_res = client.get("/api/v1/feedback")
     assert get_res.status_code == 200
     assert isinstance(get_res.json(), list)
+
+def test_ml_benchmarks_endpoint():
+    client = TestClient(app)
+    response = client.get("/api/v1/ml/benchmarks")
+    assert response.status_code == 200
+    data = response.json()
+    assert "summaryKPIs" in data
+    assert "modelPerformance" in data
+    assert "subgroupFairness" in data
+    assert data["summaryKPIs"]["thinFileRecallDrop"] == "-31.7%"
+
+def test_ml_diagnostic_curves_endpoint():
+    client = TestClient(app)
+    response = client.get("/api/v1/ml/diagnostic-curves")
+    assert response.status_code == 200
+    data = response.json()
+    assert "rocCurves" in data
+    assert "prCurves" in data
+    assert "confusionMatrices" in data
+    assert "subgroupErrorRates" in data
+    assert len(data["rocCurves"]) > 5
+    assert len(data["prCurves"]) > 5
+

@@ -63,4 +63,18 @@ public class FastApiClient {
             .retrieve()
             .body(String.class);
     }
+
+    public String getMlBenchmarks() {
+        return restClient.get()
+            .uri("/api/v1/ml/benchmarks")
+            .retrieve()
+            .body(String.class);
+    }
+
+    public String getMlDiagnosticCurves() {
+        return restClient.get()
+            .uri("/api/v1/ml/diagnostic-curves")
+            .retrieve()
+            .body(String.class);
+    }
 }

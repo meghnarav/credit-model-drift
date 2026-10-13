@@ -68,4 +68,14 @@ public class LoanApplicationController {
     public ResponseEntity<String> getCumulativeProfiles(@RequestParam(defaultValue = "APP-9824") String applicantId) {
         return ResponseEntity.ok(fastApiClient.getCumulativeProfiles(applicantId));
     }
+
+    @GetMapping("/ml/benchmarks")
+    public ResponseEntity<String> getMlBenchmarks() {
+        return ResponseEntity.ok(fastApiClient.getMlBenchmarks());
+    }
+
+    @GetMapping("/ml/diagnostic-curves")
+    public ResponseEntity<String> getMlDiagnosticCurves() {
+        return ResponseEntity.ok(fastApiClient.getMlDiagnosticCurves());
+    }
 }
