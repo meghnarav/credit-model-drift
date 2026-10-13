@@ -534,18 +534,18 @@ export default function UnifiedExecutiveCockpit() {
               Credit Risk Prediction Under Model Drift
             </h1>
             <span className="px-2.5 py-1 bg-[#1E1E1E] text-white font-mono text-xs font-bold rounded">
-              ML + XAI UNIFIED PLATFORM
+              FICO HELOC BENCHMARK
             </span>
           </div>
           <p className="text-xs lg:text-sm font-bold text-gray-600 mt-0.5">
-            Evaluating Machine Learning Robustness, Subgroup Fairness, and Algorithmic Recourse Fragility on FICO HELOC
+            Evaluating Predictive Robustness, Subgroup Fairness, and Algorithmic Recourse Under Distribution Shift
           </p>
         </div>
 
-        {/* The Two Clear Top-Level Navigation Tabs */}
+        {/* The Two Topic Navigation Tabs */}
         <div className="flex items-center bg-white border-3 border-[#1E1E1E] rounded-xl p-1.5 shadow-[4px_4px_0px_#1E1E1E] flex-wrap gap-2">
           <button
-            id="nav-tab-1-ml-core"
+            id="nav-tab-1-models"
             onClick={() => setActiveTab('ML_CORE')}
             className={`px-4 py-2 text-xs lg:text-sm font-black rounded-lg flex items-center gap-2 transition-all ${
               activeTab === 'ML_CORE'
@@ -553,17 +553,12 @@ export default function UnifiedExecutiveCockpit() {
                 : 'text-gray-700 hover:bg-gray-100 hover:text-black'
             }`}
           >
-            <Cpu size={16} className={activeTab === 'ML_CORE' ? 'text-yellow-400' : 'text-gray-500'} />
-            <span>Tab 1: ML Core &amp; Drift Benchmark</span>
-            <span className={`text-[10px] px-1.5 py-0.5 rounded font-mono ${
-              activeTab === 'ML_CORE' ? 'bg-yellow-400 text-black' : 'bg-gray-200 text-gray-700'
-            }`}>
-              ML Foundation
-            </span>
+            <Cpu size={16} className={activeTab === 'ML_CORE' ? 'text-blue-400' : 'text-gray-500'} />
+            <span>Model Performance &amp; Drift Benchmark</span>
           </button>
 
           <button
-            id="nav-tab-2-xai-recourse"
+            id="nav-tab-2-recourse"
             onClick={() => setActiveTab('XAI_RECOURSE')}
             className={`px-4 py-2 text-xs lg:text-sm font-black rounded-lg flex items-center gap-2 transition-all ${
               activeTab === 'XAI_RECOURSE'
@@ -572,18 +567,13 @@ export default function UnifiedExecutiveCockpit() {
             }`}
           >
             <Layers size={16} className={activeTab === 'XAI_RECOURSE' ? 'text-amber-400' : 'text-gray-500'} />
-            <span>Tab 2: XAI &amp; Recourse Audit</span>
-            <span className={`text-[10px] px-1.5 py-0.5 rounded font-mono ${
-              activeTab === 'XAI_RECOURSE' ? 'bg-amber-400 text-black' : 'bg-gray-200 text-gray-700'
-            }`}>
-              XAI Recourse
-            </span>
+            <span>Recourse &amp; Invalidation Audit</span>
           </button>
         </div>
       </header>
 
       {/* ========================================================================= */}
-      {/* TAB 1: ML CORE & DRIFT BENCHMARK (THE MACHINE LEARNING PROJECT PROPOSAL)  */}
+      {/* TAB 1: MODEL PERFORMANCE & DRIFT BENCHMARK                                */}
       {/* ========================================================================= */}
       {activeTab === 'ML_CORE' && (
         <div className="space-y-4">
@@ -593,7 +583,7 @@ export default function UnifiedExecutiveCockpit() {
             <div className="flex items-center gap-2">
               <span className="w-3 h-3 rounded-full bg-blue-600 animate-pulse"></span>
               <span className="text-xs font-black uppercase tracking-wider text-gray-800">
-                Pillar 1: Supervised Learning, Covariate Shift Modeling &amp; Subgroup Fairness Diagnostics
+                Supervised Model Comparison, Covariate Shift &amp; Subgroup Error Disparities
               </span>
             </div>
             <div className="flex items-center gap-2 text-[11px] font-bold text-gray-500 font-mono">
@@ -952,7 +942,7 @@ export default function UnifiedExecutiveCockpit() {
                   onClick={() => setActiveTab('XAI_RECOURSE')}
                   className="px-3 py-1 bg-[#1E1E1E] text-white text-xs font-black uppercase rounded flex items-center gap-1.5 hover:bg-black transition shadow"
                 >
-                  Proceed to Tab 2: XAI Audit
+                  Proceed to Recourse Audit
                   <ArrowRight size={12} />
                 </button>
               </div>
@@ -960,21 +950,21 @@ export default function UnifiedExecutiveCockpit() {
 
           </div>
 
-          {/* Machine Learning Project Summary Box */}
+          {/* Key Findings Box */}
           <div className="bg-white border-3 border-[#1E1E1E] rounded-xl p-4 shadow-[4px_4px_0px_#1E1E1E] flex flex-col md:flex-row justify-between items-start md:items-center gap-3">
             <div className="space-y-1">
               <span className="text-xs font-black uppercase text-indigo-700 tracking-wider block">
-                Machine Learning Project Finding:
+                Key Performance &amp; Drift Takeaway:
               </span>
               <p className="text-xs font-medium text-gray-700 max-w-4xl">
-                Non-linear gradient boosting achieves superior discrimination under stationary conditions (+7.3% AUC over logistic regression), but degrades severely (-8.9% AUC) under macroeconomic covariate shift with an acute fairness penalty on thin-file borrowers (False Negative Rate surging to 71.9%). Retraining restores predictive capacity (+13.9% AUC lift). How does this continuous retraining destabilize post-hoc explanations and counterfactual recourse?
+                Non-linear gradient boosting achieves superior discrimination under stationary conditions (+7.3% AUC over logistic regression), but degrades severely (-8.9% AUC) under macroeconomic covariate shift with an acute fairness penalty on thin-file borrowers (False Negative Rate surging to 71.9%). Retraining restores predictive capacity (+13.9% AUC lift). Inspect how these decision boundary shifts alter actionable counterfactual recourse.
               </p>
             </div>
             <button
               onClick={() => setActiveTab('XAI_RECOURSE')}
               className="px-4 py-2 bg-[#1E1E1E] text-white text-xs font-black uppercase rounded-lg hover:bg-black flex items-center gap-2 whitespace-nowrap shadow-[2px_2px_0px_#6366F1]"
             >
-              Inspect XAI Recourse Audit
+              Inspect Recourse Audit
               <ArrowRight size={14} />
             </button>
           </div>
@@ -983,7 +973,7 @@ export default function UnifiedExecutiveCockpit() {
       )}
 
       {/* ========================================================================= */}
-      {/* TAB 2: XAI & RECOURSE AUDIT (THE EXPLAINABLE AI PROJECT PROPOSAL)         */}
+      {/* TAB 2: RECOURSE & INVALIDATION AUDIT                                      */}
       {/* ========================================================================= */}
       {activeTab === 'XAI_RECOURSE' && (
         <div className="space-y-4">
@@ -993,7 +983,7 @@ export default function UnifiedExecutiveCockpit() {
             <div className="flex items-center gap-2">
               <span className="w-3 h-3 rounded-full bg-amber-500 animate-pulse"></span>
               <span className="text-xs font-black uppercase tracking-wider text-gray-800">
-                Pillar 2: Explainable AI, Counterfactual Recourse Invalidation &amp; Human-in-the-Loop Audit
+                Counterfactual Recourse Invalidation, Feature Attribution &amp; Underwriter Audit
               </span>
             </div>
 
@@ -1606,23 +1596,23 @@ export default function UnifiedExecutiveCockpit() {
       {/* ======================================================================= */}
       <footer className="mt-8 pt-4 border-t-2 border-gray-300 flex flex-col sm:flex-row justify-between items-center text-xs font-bold text-gray-600 gap-2">
         <div className="flex items-center gap-2">
-          <span>Credit Model Drift Research Platform</span>
+          <span>Credit Model Drift Analytics Platform</span>
           <span>•</span>
-          <span>Dual Academic Submission (ML + XAI)</span>
+          <span>FICO HELOC Empirical Audit</span>
         </div>
         <div className="flex items-center gap-3">
           <button
             onClick={() => setActiveTab('ML_CORE')}
             className={`hover:underline ${activeTab === 'ML_CORE' ? 'font-black text-black' : ''}`}
           >
-            Tab 1: ML Core
+            Model Performance
           </button>
           <span>|</span>
           <button
             onClick={() => setActiveTab('XAI_RECOURSE')}
             className={`hover:underline ${activeTab === 'XAI_RECOURSE' ? 'font-black text-black' : ''}`}
           >
-            Tab 2: XAI Audit
+            Recourse Audit
           </button>
           <span>|</span>
           <a

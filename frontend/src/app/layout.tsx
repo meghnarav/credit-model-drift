@@ -13,9 +13,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Credit Risk Prediction Under Drift | ML + XAI Cockpit",
+  title: "Credit Risk Prediction Under Drift | Model Performance & Recourse Audit",
   description:
-    "Evaluating Machine Learning Robustness, Subgroup Fairness, and Algorithmic Recourse Fragility on FICO HELOC",
+    "Evaluating Predictive Robustness, Subgroup Fairness, and Algorithmic Recourse Fragility on FICO HELOC",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
