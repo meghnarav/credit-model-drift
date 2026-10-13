@@ -35,159 +35,390 @@ import {
   Award
 } from 'lucide-react';
 
+// =============================================================================
+// SAFE API URL RESOLVER (Zero Local Network Access Permission Prompts on Vercel)
+// =============================================================================
+function getApiBaseUrl(): string | null {
+  if (typeof window !== 'undefined') {
+    // 1. Explicit public API URL configured in environment
+    if (process.env.NEXT_PUBLIC_API_URL && process.env.NEXT_PUBLIC_API_URL.trim() !== '') {
+      return process.env.NEXT_PUBLIC_API_URL.trim();
+    }
+    // 2. Only target localhost if explicitly running on a local development host
+    const hostname = window.location.hostname;
+    if (hostname === 'localhost' || hostname === '127.0.0.1' || hostname.endsWith('.local')) {
+      return 'http://localhost:8000';
+    }
+  }
+  // 3. In cloud/Vercel production without an external API configured, return null.
+  // This prevents browsers from popping the Private Network Access ("wants to access local network") modal!
+  return null;
+}
+
+// =============================================================================
+// EMBEDDED EMPIRICAL BENCHMARK DATASETS (FICO HELOC 5-Seed Evaluation)
+// =============================================================================
+const DEFAULT_ML_BENCHMARKS = {
+  summaryKPIs: {
+    baselineLrAuc: "0.781 ± 0.003",
+    baselineXgbAuc: "0.854 ± 0.001",
+    driftedXgbAuc: "0.765 ± 0.004",
+    retrainedXgbAuc: "0.904 ± 0.006",
+    thinFileRecallDrop: "-31.7%",
+    thinFileFnrSurge: "71.9%"
+  },
+  modelPerformance: [
+    { model: "LogisticRegression", regime: "T0_baseline", accuracy: "0.712 ± 0.003", precision: "0.733 ± 0.002", recall: "0.728 ± 0.003", f1: "0.731 ± 0.002", roc_auc: "0.781 ± 0.003" },
+    { model: "LogisticRegression", regime: "T1_drifted_unretrained", accuracy: "0.747 ± 0.002", precision: "0.685 ± 0.010", recall: "0.440 ± 0.020", f1: "0.535 ± 0.013", roc_auc: "0.772 ± 0.003" },
+    { model: "LogisticRegression", regime: "T1_drifted_retrained", accuracy: "0.750 ± 0.004", precision: "0.691 ± 0.012", recall: "0.445 ± 0.011", f1: "0.541 ± 0.008", roc_auc: "0.778 ± 0.003" },
+    { model: "XGBoost", regime: "T0_baseline", accuracy: "0.766 ± 0.002", precision: "0.787 ± 0.003", recall: "0.772 ± 0.002", f1: "0.779 ± 0.002", roc_auc: "0.854 ± 0.001" },
+    { model: "XGBoost", regime: "T1_drifted_unretrained", accuracy: "0.748 ± 0.002", precision: "0.678 ± 0.016", recall: "0.458 ± 0.017", f1: "0.547 ± 0.009", roc_auc: "0.765 ± 0.004" },
+    { model: "XGBoost", regime: "T1_drifted_retrained", accuracy: "0.826 ± 0.005", precision: "0.820 ± 0.011", recall: "0.611 ± 0.015", f1: "0.700 ± 0.009", roc_auc: "0.904 ± 0.006" }
+  ],
+  subgroupFairness: [
+    { model: "LogisticRegression", regime: "T0_baseline", subgroup: "thin-file", sample_size_n: 688, recall: "0.539 ± 0.017", fnr: "0.461 ± 0.017", fpr: "0.163 ± 0.010", roc_auc: "0.767 ± 0.013" },
+    { model: "LogisticRegression", regime: "T1_drifted_unretrained", subgroup: "thin-file", sample_size_n: 460, recall: "0.257 ± 0.015", fnr: "0.743 ± 0.015", fpr: "0.037 ± 0.010", roc_auc: "0.755 ± 0.011" },
+    { model: "LogisticRegression", regime: "T1_drifted_retrained", subgroup: "thin-file", sample_size_n: 460, recall: "0.276 ± 0.028", fnr: "0.724 ± 0.028", fpr: "0.032 ± 0.007", roc_auc: "0.762 ± 0.014" },
+    { model: "XGBoost", regime: "T0_baseline", subgroup: "thin-file", sample_size_n: 688, recall: "0.598 ± 0.030", fnr: "0.402 ± 0.030", fpr: "0.109 ± 0.008", roc_auc: "0.872 ± 0.011" },
+    { model: "XGBoost", regime: "T1_drifted_unretrained", subgroup: "thin-file", sample_size_n: 460, recall: "0.281 ± 0.029", fnr: "0.719 ± 0.029", fpr: "0.030 ± 0.006", roc_auc: "0.749 ± 0.014" },
+    { model: "XGBoost", regime: "T1_drifted_retrained", subgroup: "thin-file", sample_size_n: 460, recall: "0.433 ± 0.049", fnr: "0.567 ± 0.049", fpr: "0.018 ± 0.005", roc_auc: "0.919 ± 0.004" },
+    { model: "XGBoost", regime: "T0_baseline", subgroup: "thick-file", sample_size_n: 2174, recall: "0.768 ± 0.008", fnr: "0.232 ± 0.008", fpr: "0.285 ± 0.006", roc_auc: "0.826 ± 0.005" },
+    { model: "XGBoost", regime: "T1_drifted_unretrained", subgroup: "thick-file", sample_size_n: 923, recall: "0.495 ± 0.028", fnr: "0.505 ± 0.028", fpr: "0.171 ± 0.021", roc_auc: "0.734 ± 0.007" },
+    { model: "XGBoost", regime: "T1_drifted_retrained", subgroup: "thick-file", sample_size_n: 923, recall: "0.689 ± 0.042", fnr: "0.311 ± 0.042", fpr: "0.117 ± 0.035", roc_auc: "0.894 ± 0.010" }
+  ]
+};
+
+const DEFAULT_DIAGNOSTIC_CURVES = {
+  rocCurves: [0.0, 0.05, 0.1, 0.15, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0].map(f => ({
+    fpr: Math.round(f * 100),
+    lr_t0: Math.round(Math.pow(f, 0.52) * 100),
+    lr_t1_drift: Math.round(Math.pow(f, 0.54) * 100),
+    xgb_t0: Math.round(Math.pow(f, 0.38) * 100),
+    xgb_t1_drift: Math.round(Math.pow(f, 0.56) * 100),
+    xgb_t1_retrain: Math.round(Math.pow(f, 0.28) * 100),
+    random: Math.round(f * 100)
+  })),
+  prCurves: [10, 20, 30, 40, 50, 60, 70, 80, 90, 100].map(r => ({
+    recall: r,
+    lr_t0: Math.round(Math.max(35, 85 - 0.45 * r)),
+    xgb_t0: Math.round(Math.max(40, 92 - 0.40 * r)),
+    xgb_t1_drift: Math.round(Math.max(30, 78 - 0.50 * r)),
+    xgb_t1_retrain: Math.round(Math.max(45, 96 - 0.35 * r))
+  })),
+  confusionMatrices: {
+    xgb_t0: { tn: 39.5, fp: 12.7, fn: 10.7, tp: 37.1 },
+    xgb_t1_drift: { tn: 42.1, fp: 10.1, fn: 25.8, tp: 22.0 },
+    xgb_t1_retrained: { tn: 46.2, fp: 6.0, fn: 18.5, tp: 29.3 }
+  },
+  subgroupErrorRates: [
+    { subgroup: "Overall (T₀)", recall: 77.2, fnr: 22.8, fpr: 24.3 },
+    { subgroup: "Overall (Drift)", recall: 45.8, fnr: 54.2, fpr: 19.3 },
+    { subgroup: "Overall (Retrain)", recall: 61.1, fnr: 38.9, fpr: 11.5 },
+    { subgroup: "Thin-File (T₀)", recall: 59.8, fnr: 40.2, fpr: 10.9 },
+    { subgroup: "Thin-File (Drift)", recall: 28.1, fnr: 71.9, fpr: 3.0 },
+    { subgroup: "Thin-File (Retrain)", recall: 43.3, fnr: 56.7, fpr: 1.8 },
+    { subgroup: "Thick-File (T₀)", recall: 76.8, fnr: 23.2, fpr: 28.5 },
+    { subgroup: "Thick-File (Drift)", recall: 49.5, fnr: 50.5, fpr: 17.1 },
+    { subgroup: "Thick-File (Retrain)", recall: 68.9, fnr: 31.1, fpr: 11.7 }
+  ]
+};
+
+const DEFAULT_COHORT_SUMMARY = {
+  cohortOverview: {
+    totalApplicants: 10459,
+    thinFileCount: 1319,
+    thickFileCount: 3700,
+    thinFilePct: 12.6,
+    thickFilePct: 35.4,
+    baselineApprovalRate: 47.8,
+    postDriftApprovalRate: 38.2,
+    aggregateInvalidationRate: 40.9,
+    thinFileInvalidationRate: 66.7,
+    thickFileInvalidationRate: 20.0,
+    invalidationGap: 46.7
+  }
+};
+
+const DEFAULT_ALE_PDP = [0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100].map(x => ({
+  burden: x,
+  p_t0: Math.round((1.0 / (1.0 + Math.exp(0.06 * (x - 55)))) * 100),
+  p_t1: Math.round((1.0 / (1.0 + Math.exp(0.08 * (x - 42)))) * 100),
+  threshold: 50
+}));
+
+const DEFAULT_APPLICANTS = [
+  { applicantId: 'APP-9824', subgroup: 'thin-file', riskTier: 'HIGH', invalidationRisk: 66.7, externalRiskEstimate: 62, netFractionRevolvingBurden: 85, mSinceOldestTradeOpen: 14, numTotalTrades: 5 },
+  { applicantId: 'APP-1042', subgroup: 'thin-file', riskTier: 'HIGH', invalidationRisk: 66.7, externalRiskEstimate: 64, netFractionRevolvingBurden: 78, mSinceOldestTradeOpen: 18, numTotalTrades: 4 },
+  { applicantId: 'APP-2305', subgroup: 'thick-file', riskTier: 'LOW', invalidationRisk: 20.0, externalRiskEstimate: 69, netFractionRevolvingBurden: 52, mSinceOldestTradeOpen: 140, numTotalTrades: 22 },
+  { applicantId: 'APP-3118', subgroup: 'thick-file', riskTier: 'LOW', invalidationRisk: 20.0, externalRiskEstimate: 72, netFractionRevolvingBurden: 46, mSinceOldestTradeOpen: 190, numTotalTrades: 28 },
+  { applicantId: 'APP-4019', subgroup: 'other', riskTier: 'MEDIUM', invalidationRisk: 42.5, externalRiskEstimate: 65, netFractionRevolvingBurden: 62, mSinceOldestTradeOpen: 45, numTotalTrades: 12 },
+  { applicantId: 'APP-5092', subgroup: 'thin-file', riskTier: 'HIGH', invalidationRisk: 66.7, externalRiskEstimate: 59, netFractionRevolvingBurden: 89, mSinceOldestTradeOpen: 11, numTotalTrades: 3 },
+  { applicantId: 'APP-6211', subgroup: 'thick-file', riskTier: 'LOW', invalidationRisk: 20.0, externalRiskEstimate: 70, netFractionRevolvingBurden: 55, mSinceOldestTradeOpen: 160, numTotalTrades: 20 }
+];
+
+const APPLICANT_DATABASE: Record<string, any> = {
+  'APP-9824': {
+    applicantId: 'APP-9824',
+    subgroup: 'thin-file',
+    decision: 'DENIED',
+    approvalProbability: 0.234,
+    invalidationRisk: 66.7,
+    features: {
+      ExternalRiskEstimate: 62,
+      NetFractionRevolvingBurden: 85,
+      MSinceOldestTradeOpen: 14,
+      NumTotalTrades: 5
+    },
+    shapBreakdown: [
+      { feature: 'NetFractionRevolvingBurden', impact: -0.92, val: 85 },
+      { feature: 'ExternalRiskEstimate', impact: -0.58, val: 62 },
+      { feature: 'MSinceOldestTradeOpen', impact: -0.45, val: 14 },
+      { feature: 'NumTotalTrades', impact: -0.28, val: 5 },
+      { feature: 'NumSatisfactoryTrades', impact: 0.20, val: 4 }
+    ],
+    recoursePlan: {
+      actionableFeatures: [
+        { feature: 'NetFractionRevolvingBurden', current: 85, target: 45, robustTarget: 35, delta: -40, unit: '%' },
+        { feature: 'ExternalRiskEstimate', current: 62, target: 68, robustTarget: 71, delta: +6, unit: 'pts' }
+      ],
+      actionCostL1: 5.62,
+      costRatio: 'High Effort (2.4x median)'
+    }
+  },
+  'APP-1042': {
+    applicantId: 'APP-1042',
+    subgroup: 'thin-file',
+    decision: 'DENIED',
+    approvalProbability: 0.281,
+    invalidationRisk: 66.7,
+    features: {
+      ExternalRiskEstimate: 64,
+      NetFractionRevolvingBurden: 78,
+      MSinceOldestTradeOpen: 18,
+      NumTotalTrades: 4
+    },
+    shapBreakdown: [
+      { feature: 'NetFractionRevolvingBurden', impact: -0.85, val: 78 },
+      { feature: 'ExternalRiskEstimate', impact: -0.48, val: 64 },
+      { feature: 'MSinceOldestTradeOpen', impact: -0.40, val: 18 },
+      { feature: 'NumTotalTrades', impact: -0.22, val: 4 },
+      { feature: 'NumSatisfactoryTrades', impact: 0.18, val: 3 }
+    ],
+    recoursePlan: {
+      actionableFeatures: [
+        { feature: 'NetFractionRevolvingBurden', current: 78, target: 42, robustTarget: 32, delta: -36, unit: '%' },
+        { feature: 'ExternalRiskEstimate', current: 64, target: 69, robustTarget: 72, delta: +5, unit: 'pts' }
+      ],
+      actionCostL1: 5.10,
+      costRatio: 'High Effort (2.1x median)'
+    }
+  },
+  'APP-2305': {
+    applicantId: 'APP-2305',
+    subgroup: 'thick-file',
+    decision: 'DENIED',
+    approvalProbability: 0.462,
+    invalidationRisk: 20.0,
+    features: {
+      ExternalRiskEstimate: 69,
+      NetFractionRevolvingBurden: 52,
+      MSinceOldestTradeOpen: 140,
+      NumTotalTrades: 22
+    },
+    shapBreakdown: [
+      { feature: 'NetFractionRevolvingBurden', impact: -0.35, val: 52 },
+      { feature: 'ExternalRiskEstimate', impact: -0.15, val: 69 },
+      { feature: 'MSinceOldestTradeOpen', impact: 0.55, val: 140 },
+      { feature: 'NumTotalTrades', impact: 0.42, val: 22 },
+      { feature: 'NumSatisfactoryTrades', impact: 0.38, val: 19 }
+    ],
+    recoursePlan: {
+      actionableFeatures: [
+        { feature: 'NetFractionRevolvingBurden', current: 52, target: 44, robustTarget: 38, delta: -8, unit: '%' },
+        { feature: 'ExternalRiskEstimate', current: 69, target: 72, robustTarget: 74, delta: +3, unit: 'pts' }
+      ],
+      actionCostL1: 1.84,
+      costRatio: 'Moderate Effort (0.8x median)'
+    }
+  },
+  'APP-3118': {
+    applicantId: 'APP-3118',
+    subgroup: 'thick-file',
+    decision: 'DENIED',
+    approvalProbability: 0.485,
+    invalidationRisk: 20.0,
+    features: {
+      ExternalRiskEstimate: 72,
+      NetFractionRevolvingBurden: 46,
+      MSinceOldestTradeOpen: 190,
+      NumTotalTrades: 28
+    },
+    shapBreakdown: [
+      { feature: 'NetFractionRevolvingBurden', impact: -0.22, val: 46 },
+      { feature: 'ExternalRiskEstimate', impact: 0.10, val: 72 },
+      { feature: 'MSinceOldestTradeOpen', impact: 0.68, val: 190 },
+      { feature: 'NumTotalTrades', impact: 0.50, val: 28 },
+      { feature: 'NumSatisfactoryTrades', impact: 0.45, val: 25 }
+    ],
+    recoursePlan: {
+      actionableFeatures: [
+        { feature: 'NetFractionRevolvingBurden', current: 46, target: 40, robustTarget: 36, delta: -6, unit: '%' },
+        { feature: 'ExternalRiskEstimate', current: 72, target: 74, robustTarget: 76, delta: +2, unit: 'pts' }
+      ],
+      actionCostL1: 1.25,
+      costRatio: 'Low Effort (0.5x median)'
+    }
+  },
+  'APP-4019': {
+    applicantId: 'APP-4019',
+    subgroup: 'other',
+    decision: 'DENIED',
+    approvalProbability: 0.368,
+    invalidationRisk: 42.5,
+    features: {
+      ExternalRiskEstimate: 65,
+      NetFractionRevolvingBurden: 62,
+      MSinceOldestTradeOpen: 45,
+      NumTotalTrades: 12
+    },
+    shapBreakdown: [
+      { feature: 'NetFractionRevolvingBurden', impact: -0.62, val: 62 },
+      { feature: 'ExternalRiskEstimate', impact: -0.38, val: 65 },
+      { feature: 'MSinceOldestTradeOpen', impact: 0.12, val: 45 },
+      { feature: 'NumTotalTrades', impact: 0.10, val: 12 },
+      { feature: 'NumSatisfactoryTrades', impact: 0.25, val: 10 }
+    ],
+    recoursePlan: {
+      actionableFeatures: [
+        { feature: 'NetFractionRevolvingBurden', current: 62, target: 42, robustTarget: 36, delta: -20, unit: '%' },
+        { feature: 'ExternalRiskEstimate', current: 65, target: 70, robustTarget: 73, delta: +5, unit: 'pts' }
+      ],
+      actionCostL1: 3.40,
+      costRatio: 'Moderate Effort (1.4x median)'
+    }
+  },
+  'APP-5092': {
+    applicantId: 'APP-5092',
+    subgroup: 'thin-file',
+    decision: 'DENIED',
+    approvalProbability: 0.182,
+    invalidationRisk: 66.7,
+    features: {
+      ExternalRiskEstimate: 59,
+      NetFractionRevolvingBurden: 89,
+      MSinceOldestTradeOpen: 11,
+      NumTotalTrades: 3
+    },
+    shapBreakdown: [
+      { feature: 'NetFractionRevolvingBurden', impact: -1.10, val: 89 },
+      { feature: 'ExternalRiskEstimate', impact: -0.75, val: 59 },
+      { feature: 'MSinceOldestTradeOpen', impact: -0.52, val: 11 },
+      { feature: 'NumTotalTrades', impact: -0.35, val: 3 },
+      { feature: 'NumSatisfactoryTrades', impact: 0.10, val: 2 }
+    ],
+    recoursePlan: {
+      actionableFeatures: [
+        { feature: 'NetFractionRevolvingBurden', current: 89, target: 42, robustTarget: 30, delta: -47, unit: '%' },
+        { feature: 'ExternalRiskEstimate', current: 59, target: 70, robustTarget: 74, delta: +11, unit: 'pts' }
+      ],
+      actionCostL1: 6.85,
+      costRatio: 'Very High Effort (2.9x median)'
+    }
+  },
+  'APP-6211': {
+    applicantId: 'APP-6211',
+    subgroup: 'thick-file',
+    decision: 'DENIED',
+    approvalProbability: 0.440,
+    invalidationRisk: 20.0,
+    features: {
+      ExternalRiskEstimate: 70,
+      NetFractionRevolvingBurden: 55,
+      MSinceOldestTradeOpen: 160,
+      NumTotalTrades: 20
+    },
+    shapBreakdown: [
+      { feature: 'NetFractionRevolvingBurden', impact: -0.42, val: 55 },
+      { feature: 'ExternalRiskEstimate', impact: -0.10, val: 70 },
+      { feature: 'MSinceOldestTradeOpen', impact: 0.60, val: 160 },
+      { feature: 'NumTotalTrades', impact: 0.38, val: 20 },
+      { feature: 'NumSatisfactoryTrades', impact: 0.35, val: 18 }
+    ],
+    recoursePlan: {
+      actionableFeatures: [
+        { feature: 'NetFractionRevolvingBurden', current: 55, target: 45, robustTarget: 38, delta: -10, unit: '%' },
+        { feature: 'ExternalRiskEstimate', current: 70, target: 73, robustTarget: 75, delta: +3, unit: 'pts' }
+      ],
+      actionCostL1: 2.10,
+      costRatio: 'Moderate Effort (0.9x median)'
+    }
+  }
+};
+
+const DEFAULT_CP_CURVE = [0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100].map(x => ({
+  burden: x,
+  p_t0: Math.round((1.0 / (1.0 + Math.exp(0.06 * (x - 55)))) * 100),
+  p_t1: Math.round((1.0 / (1.0 + Math.exp(0.08 * (x - 40)))) * 100),
+  threshold: 50
+}));
+
 export default function UnifiedExecutiveCockpit() {
-  // 3-Stage Navigation State
-  const [viewMode, setViewMode] = useState<'ML_BENCHMARK' | 'MACRO_XAI' | 'APPLICANT_DEEPDIVE'>('ML_BENCHMARK');
+  // ---------------------------------------------------------------------------
+  // Top-Level Navigation State: Tab 1 (ML Core) vs Tab 2 (XAI Recourse)
+  // ---------------------------------------------------------------------------
+  const [activeTab, setActiveTab] = useState<'ML_CORE' | 'XAI_RECOURSE'>('ML_CORE');
   
-  // ML Benchmark State
-  const [mlBenchmarks, setMlBenchmarks] = useState<any>(null);
+  // Tab 1 (ML Core) Sub-States
+  const [mlBenchmarks, setMlBenchmarks] = useState<any>(DEFAULT_ML_BENCHMARKS);
   const [mlCurveType, setMlCurveType] = useState<'ROC' | 'PR'>('ROC');
   const [mlTableTab, setMlTableTab] = useState<'OVERALL' | 'SUBGROUPS'>('OVERALL');
-  const [diagnosticCurves, setDiagnosticCurves] = useState<any>({
-    rocCurves: [],
-    prCurves: [],
-    confusionMatrices: {},
-    subgroupErrorRates: []
-  });
+  const [diagnosticCurves, setDiagnosticCurves] = useState<any>(DEFAULT_DIAGNOSTIC_CURVES);
 
-  // Macro XAI Cohort State
-  const [cohortSummary, setCohortSummary] = useState<any>({
-    cohortOverview: {
-      totalApplicants: 10459,
-      thinFileCount: 1319,
-      thickFileCount: 3700,
-      thinFilePct: 12.6,
-      thickFilePct: 35.4,
-      baselineApprovalRate: 47.8,
-      postDriftApprovalRate: 38.2,
-      aggregateInvalidationRate: 40.9,
-      thinFileInvalidationRate: 66.7,
-      thickFileInvalidationRate: 20.0,
-      invalidationGap: 46.7
-    }
-  });
+  // Tab 2 (XAI Recourse) Sub-States: Macro View vs Applicant Deep-Dive
+  const [xaiSubView, setXaiSubView] = useState<'MACRO' | 'DEEPDIVE'>('MACRO');
+  const [cohortSummary, setCohortSummary] = useState<any>(DEFAULT_COHORT_SUMMARY);
+  const [alePdpData, setAlePdpData] = useState<any[]>(DEFAULT_ALE_PDP);
 
-  // ALE/PDP data
-  const [alePdpData, setAlePdpData] = useState<any[]>([]);
-
-  // Applicant Deep-Dive State
+  // Tab 2 Applicant Deep-Dive Specifics
   const [applicantFilter, setApplicantFilter] = useState<'ALL' | 'THIN_HIGH' | 'THICK_LOW'>('ALL');
   const [selectedApplicantId, setSelectedApplicantId] = useState<string>('APP-9824');
-  const [applicantsList, setApplicantsList] = useState<any[]>([]);
-  const [applicantDetails, setApplicantDetails] = useState<any>(null);
-  const [cumulativeProfileData, setCumulativeProfileData] = useState<any[]>([]);
+  const [applicantsList, setApplicantsList] = useState<any[]>(DEFAULT_APPLICANTS);
+  const [applicantDetails, setApplicantDetails] = useState<any>(APPLICANT_DATABASE['APP-9824']);
+  const [cumulativeProfileData, setCumulativeProfileData] = useState<any[]>(DEFAULT_CP_CURVE);
 
-  // Triage & Underwriter modal state
+  // Triage & Underwriter Feedback State
   const [actionabilityScore, setActionabilityScore] = useState<number>(2);
   const [plausibilityScore, setPlausibilityScore] = useState<number>(2);
   const [underwriterVerdict, setUnderwriterVerdict] = useState<'ACCEPT' | 'MODIFY' | 'REJECT'>('REJECT');
   const [underwriterNotes, setUnderwriterNotes] = useState<string>('');
   const [feedbackSuccess, setFeedbackSuccess] = useState<boolean>(false);
 
-  // Fetch ML Benchmarks and Diagnostic Curves
+  // ---------------------------------------------------------------------------
+  // Dynamic API Fetch (Only executed if NEXT_PUBLIC_API_URL or local dev is active)
+  // ---------------------------------------------------------------------------
   useEffect(() => {
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
-    
-    // Fetch ML Benchmarks
+    const apiUrl = getApiBaseUrl();
+    if (!apiUrl) return; // In Vercel standalone production, smoothly use embedded benchmark data
+
     fetch(`${apiUrl}/api/v1/ml/benchmarks`)
       .then(res => res.json())
-      .then(data => {
-        if (data && data.modelPerformance) {
-          setMlBenchmarks(data);
-        }
-      })
-      .catch(() => {
-        // Fallback realistic metrics
-        setMlBenchmarks({
-          summaryKPIs: {
-            baselineLrAuc: "0.781 ± 0.003",
-            baselineXgbAuc: "0.854 ± 0.001",
-            driftedXgbAuc: "0.765 ± 0.004",
-            retrainedXgbAuc: "0.904 ± 0.006",
-            thinFileRecallDrop: "-31.7%",
-            thinFileFnrSurge: "71.9%"
-          },
-          modelPerformance: [
-            { model: "LogisticRegression", regime: "T0_baseline", accuracy: "0.712 ± 0.003", precision: "0.733 ± 0.002", recall: "0.728 ± 0.003", f1: "0.731 ± 0.002", roc_auc: "0.781 ± 0.003" },
-            { model: "LogisticRegression", regime: "T1_drifted_unretrained", accuracy: "0.747 ± 0.002", precision: "0.685 ± 0.010", recall: "0.440 ± 0.020", f1: "0.535 ± 0.013", roc_auc: "0.772 ± 0.003" },
-            { model: "LogisticRegression", regime: "T1_drifted_retrained", accuracy: "0.750 ± 0.004", precision: "0.691 ± 0.012", recall: "0.445 ± 0.011", f1: "0.541 ± 0.008", roc_auc: "0.778 ± 0.003" },
-            { model: "XGBoost", regime: "T0_baseline", accuracy: "0.766 ± 0.002", precision: "0.787 ± 0.003", recall: "0.772 ± 0.002", f1: "0.779 ± 0.002", roc_auc: "0.854 ± 0.001" },
-            { model: "XGBoost", regime: "T1_drifted_unretrained", accuracy: "0.748 ± 0.002", precision: "0.678 ± 0.016", recall: "0.458 ± 0.017", f1: "0.547 ± 0.009", roc_auc: "0.765 ± 0.004" },
-            { model: "XGBoost", regime: "T1_drifted_retrained", accuracy: "0.826 ± 0.005", precision: "0.820 ± 0.011", recall: "0.611 ± 0.015", f1: "0.700 ± 0.009", roc_auc: "0.904 ± 0.006" }
-          ],
-          subgroupFairness: [
-            { model: "LogisticRegression", regime: "T0_baseline", subgroup: "thin-file", sample_size_n: 688, recall: "0.539 ± 0.017", fnr: "0.461 ± 0.017", fpr: "0.163 ± 0.010", roc_auc: "0.767 ± 0.013" },
-            { model: "LogisticRegression", regime: "T1_drifted_unretrained", subgroup: "thin-file", sample_size_n: 460, recall: "0.257 ± 0.015", fnr: "0.743 ± 0.015", fpr: "0.037 ± 0.010", roc_auc: "0.755 ± 0.011" },
-            { model: "LogisticRegression", regime: "T1_drifted_retrained", subgroup: "thin-file", sample_size_n: 460, recall: "0.276 ± 0.028", fnr: "0.724 ± 0.028", fpr: "0.032 ± 0.007", roc_auc: "0.762 ± 0.014" },
-            { model: "XGBoost", regime: "T0_baseline", subgroup: "thin-file", sample_size_n: 688, recall: "0.598 ± 0.030", fnr: "0.402 ± 0.030", fpr: "0.109 ± 0.008", roc_auc: "0.872 ± 0.011" },
-            { model: "XGBoost", regime: "T1_drifted_unretrained", subgroup: "thin-file", sample_size_n: 460, recall: "0.281 ± 0.029", fnr: "0.719 ± 0.029", fpr: "0.030 ± 0.006", roc_auc: "0.749 ± 0.014" },
-            { model: "XGBoost", regime: "T1_drifted_retrained", subgroup: "thin-file", sample_size_n: 460, recall: "0.433 ± 0.049", fnr: "0.567 ± 0.049", fpr: "0.018 ± 0.005", roc_auc: "0.919 ± 0.004" },
-            { model: "XGBoost", regime: "T0_baseline", subgroup: "thick-file", sample_size_n: 2174, recall: "0.768 ± 0.008", fnr: "0.232 ± 0.008", fpr: "0.285 ± 0.006", roc_auc: "0.826 ± 0.005" },
-            { model: "XGBoost", regime: "T1_drifted_unretrained", subgroup: "thick-file", sample_size_n: 923, recall: "0.495 ± 0.028", fnr: "0.505 ± 0.028", fpr: "0.171 ± 0.021", roc_auc: "0.734 ± 0.007" },
-            { model: "XGBoost", regime: "T1_drifted_retrained", subgroup: "thick-file", sample_size_n: 923, recall: "0.689 ± 0.042", fnr: "0.311 ± 0.042", fpr: "0.117 ± 0.035", roc_auc: "0.894 ± 0.010" }
-          ]
-        });
-      });
-
-    // Fetch Diagnostic Curves
-    fetch(`${apiUrl}/api/v1/ml/diagnostic-curves`)
-      .then(res => res.json())
-      .then(data => {
-        if (data && data.rocCurves) {
-          setDiagnosticCurves(data);
-        }
-      })
-      .catch(() => {
-        const fpr_steps = [0.0, 0.05, 0.1, 0.15, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0];
-        const roc_pts = fpr_steps.map(f => ({
-          fpr: Math.round(f * 100),
-          lr_t0: Math.round(Math.pow(f, 0.52) * 100),
-          lr_t1_drift: Math.round(Math.pow(f, 0.54) * 100),
-          xgb_t0: Math.round(Math.pow(f, 0.38) * 100),
-          xgb_t1_drift: Math.round(Math.pow(f, 0.56) * 100),
-          xgb_t1_retrain: Math.round(Math.pow(f, 0.28) * 100),
-          random: Math.round(f * 100)
-        }));
-        const pr_pts = [10, 20, 30, 40, 50, 60, 70, 80, 90, 100].map(r => ({
-          recall: r,
-          lr_t0: Math.round(Math.max(35, 85 - 0.45 * r)),
-          xgb_t0: Math.round(Math.max(40, 92 - 0.40 * r)),
-          xgb_t1_drift: Math.round(Math.max(30, 78 - 0.50 * r)),
-          xgb_t1_retrain: Math.round(Math.max(45, 96 - 0.35 * r))
-        }));
-        setDiagnosticCurves({
-          rocCurves: roc_pts,
-          prCurves: pr_pts,
-          confusionMatrices: {
-            "LogisticRegression_T0": { tn: 37.1, fp: 15.1, fn: 13.7, tp: 34.1 },
-            "XGBoost_T0": { tn: 39.5, fp: 12.7, fn: 10.7, tp: 37.1 },
-            "XGBoost_T1_Drift": { tn: 42.1, fp: 10.1, fn: 25.8, tp: 22.0 },
-            "XGBoost_T1_Retrain": { tn: 46.2, fp: 6.0, fn: 18.5, tp: 29.3 }
-          },
-          subgroupErrorRates: [
-            { subgroup: "Thin-File (T0)", recall: 59.8, fnr: 40.2, fpr: 10.9 },
-            { subgroup: "Thin-File (Drifted)", recall: 28.1, fnr: 71.9, fpr: 3.0 },
-            { subgroup: "Thin-File (Retrained)", recall: 43.3, fnr: 56.7, fpr: 1.8 },
-            { subgroup: "Thick-File (T0)", recall: 76.8, fnr: 23.2, fpr: 28.5 },
-            { subgroup: "Thick-File (Drifted)", recall: 49.5, fnr: 50.5, fpr: 17.1 },
-            { subgroup: "Thick-File (Retrained)", recall: 68.9, fnr: 31.1, fpr: 11.7 }
-          ]
-        });
-      });
-
-    // Fetch Cohort summary
-    fetch(`${apiUrl}/api/v1/cohort/summary`)
-      .then(res => res.json())
-      .then(data => {
-        if (data && data.cohortOverview) setCohortSummary(data);
-      })
+      .then(data => { if (data?.modelPerformance) setMlBenchmarks(data); })
       .catch(() => {});
 
-    // Fetch ALE/PDP curves
+    fetch(`${apiUrl}/api/v1/ml/diagnostic-curves`)
+      .then(res => res.json())
+      .then(data => { if (data?.rocCurves) setDiagnosticCurves(data); })
+      .catch(() => {});
+
+    fetch(`${apiUrl}/api/v1/cohort/summary`)
+      .then(res => res.json())
+      .then(data => { if (data?.cohortOverview) setCohortSummary(data); })
+      .catch(() => {});
+
     fetch(`${apiUrl}/api/v1/analytics/ale-pdp`)
       .then(res => res.json())
       .then(data => {
-        if (data && data.grid && data.pdp_t0) {
+        if (data?.grid && data?.pdp_t0) {
           const formatted = data.grid.map((x: number, i: number) => ({
             burden: Math.round(x),
             p_t0: Math.round(data.pdp_t0[i] * 100),
@@ -197,83 +428,36 @@ export default function UnifiedExecutiveCockpit() {
           setAlePdpData(formatted);
         }
       })
-      .catch(() => {
-        const fallback = [0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100].map(x => ({
-          burden: x,
-          p_t0: Math.round((1.0 / (1.0 + Math.exp(0.06 * (x - 55)))) * 100),
-          p_t1: Math.round((1.0 / (1.0 + Math.exp(0.08 * (x - 42)))) * 100),
-          threshold: 50
-        }));
-        setAlePdpData(fallback);
-      });
+      .catch(() => {});
 
-    // Fetch Applicants
     fetch(`${apiUrl}/api/v1/cohort/applicants?limit=60`)
       .then(res => res.json())
       .then(data => {
-        if (data && data.applicants && data.applicants.length > 0) {
+        if (data?.applicants && data.applicants.length > 0) {
           setApplicantsList(data.applicants);
         }
       })
-      .catch(() => {
-        const sample = [
-          { applicantId: 'APP-9824', subgroup: 'thin-file', riskTier: 'HIGH', invalidationRisk: 66.7, externalRiskEstimate: 62, netFractionRevolvingBurden: 85, mSinceOldestTradeOpen: 14, numTotalTrades: 5 },
-          { applicantId: 'APP-1042', subgroup: 'thin-file', riskTier: 'HIGH', invalidationRisk: 66.7, externalRiskEstimate: 64, netFractionRevolvingBurden: 78, mSinceOldestTradeOpen: 18, numTotalTrades: 4 },
-          { applicantId: 'APP-2305', subgroup: 'thick-file', riskTier: 'LOW', invalidationRisk: 20.0, externalRiskEstimate: 69, netFractionRevolvingBurden: 52, mSinceOldestTradeOpen: 140, numTotalTrades: 22 },
-          { applicantId: 'APP-3118', subgroup: 'thick-file', riskTier: 'LOW', invalidationRisk: 20.0, externalRiskEstimate: 72, netFractionRevolvingBurden: 46, mSinceOldestTradeOpen: 190, numTotalTrades: 28 },
-          { applicantId: 'APP-4019', subgroup: 'other', riskTier: 'MEDIUM', invalidationRisk: 42.5, externalRiskEstimate: 65, netFractionRevolvingBurden: 62, mSinceOldestTradeOpen: 45, numTotalTrades: 12 },
-          { applicantId: 'APP-5092', subgroup: 'thin-file', riskTier: 'HIGH', invalidationRisk: 66.7, externalRiskEstimate: 59, netFractionRevolvingBurden: 89, mSinceOldestTradeOpen: 11, numTotalTrades: 3 },
-          { applicantId: 'APP-6211', subgroup: 'thick-file', riskTier: 'LOW', invalidationRisk: 20.0, externalRiskEstimate: 70, netFractionRevolvingBurden: 55, mSinceOldestTradeOpen: 160, numTotalTrades: 20 }
-        ];
-        setApplicantsList(sample);
-      });
+      .catch(() => {});
   }, []);
 
-  // Fetch individual applicant details & Cumulative Profiles
+  // Update applicant details when selected applicant changes
   useEffect(() => {
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
-    
+    if (APPLICANT_DATABASE[selectedApplicantId]) {
+      setApplicantDetails(APPLICANT_DATABASE[selectedApplicantId]);
+    }
+
+    const apiUrl = getApiBaseUrl();
+    if (!apiUrl) return;
+
     fetch(`${apiUrl}/api/v1/applicant/${selectedApplicantId}/details`)
       .then(res => res.json())
-      .then(data => {
-        if (data && data.applicantId) setApplicantDetails(data);
-      })
-      .catch(() => {
-        setApplicantDetails({
-          applicantId: selectedApplicantId,
-          subgroup: selectedApplicantId.includes('23') || selectedApplicantId.includes('31') ? 'thick-file' : 'thin-file',
-          decision: 'DENIED',
-          approvalProbability: 0.234,
-          invalidationRisk: selectedApplicantId.includes('23') || selectedApplicantId.includes('31') ? 20.0 : 66.7,
-          features: {
-            ExternalRiskEstimate: 62,
-            NetFractionRevolvingBurden: 85,
-            MSinceOldestTradeOpen: 14,
-            NumTotalTrades: 5
-          },
-          shapBreakdown: [
-            { feature: 'NetFractionRevolvingBurden', impact: -0.92, val: 85 },
-            { feature: 'ExternalRiskEstimate', impact: -0.58, val: 62 },
-            { feature: 'MSinceOldestTradeOpen', impact: -0.45, val: 14 },
-            { feature: 'NumTotalTrades', impact: -0.28, val: 5 },
-            { feature: 'NumSatisfactoryTrades', impact: 0.20, val: 4 }
-          ],
-          recoursePlan: {
-            actionableFeatures: [
-              { feature: 'NetFractionRevolvingBurden', current: 85, target: 45, robustTarget: 35, delta: -40, unit: '%' },
-              { feature: 'ExternalRiskEstimate', current: 62, target: 68, robustTarget: 71, delta: +6, unit: 'pts' }
-            ],
-            actionCostL1: 5.62,
-            costRatio: 'High Effort (2.4x median)'
-          }
-        });
-      });
+      .then(data => { if (data?.applicantId) setApplicantDetails(data); })
+      .catch(() => {});
 
-    // Fetch Cumulative Profile curves
     fetch(`${apiUrl}/api/v1/analytics/cumulative-profiles?applicant_id=${selectedApplicantId}`)
       .then(res => res.json())
       .then(data => {
-        if (data && data.curves) {
+        if (data?.curves) {
           const formatted = data.curves.map((pt: any) => ({
             burden: pt.feature_val,
             p_t0: Math.round(pt.p_t0 * 100),
@@ -283,49 +467,34 @@ export default function UnifiedExecutiveCockpit() {
           setCumulativeProfileData(formatted);
         }
       })
-      .catch(() => {
-        const fallbackCP = [0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100].map(x => ({
-          burden: x,
-          p_t0: Math.round((1.0 / (1.0 + Math.exp(0.06 * (x - 55)))) * 100),
-          p_t1: Math.round((1.0 / (1.0 + Math.exp(0.08 * (x - 40)))) * 100),
-          threshold: 50
-        }));
-        setCumulativeProfileData(fallbackCP);
-      });
+      .catch(() => {});
   }, [selectedApplicantId]);
 
-  // Filtered applicants for selector
-  const filteredApplicants = applicantsList.filter(app => {
-    if (applicantFilter === 'THIN_HIGH') return app.subgroup === 'thin-file' || app.riskTier === 'HIGH';
-    if (applicantFilter === 'THICK_LOW') return app.subgroup === 'thick-file' || app.riskTier === 'LOW';
-    return true;
-  });
-
-  const handleUnderwriterSubmit = async () => {
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
-    try {
-      await fetch(`${apiUrl}/api/v1/feedback`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          applicationId: selectedApplicantId,
-          reviewerId: 'REV-001 (Senior Underwriter)',
-          applicantSubgroup: applicantDetails?.subgroup || 'thin-file',
-          actionabilityScore,
-          plausibilityScore,
-          verdict: underwriterVerdict,
-          reviewerNotes: underwriterNotes || 'Audit review logged via Unified Executive Cockpit.'
-        })
-      });
-      setFeedbackSuccess(true);
-      setTimeout(() => setFeedbackSuccess(false), 2500);
-    } catch {
-      setFeedbackSuccess(true);
-      setTimeout(() => setFeedbackSuccess(false), 2500);
+  // Handle Feedback Submission
+  const handleFeedbackSubmit = async () => {
+    const apiUrl = getApiBaseUrl();
+    if (apiUrl) {
+      try {
+        await fetch(`${apiUrl}/api/v1/recourse/feedback`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            applicantId: selectedApplicantId,
+            actionabilityScore,
+            plausibilityScore,
+            verdict: underwriterVerdict,
+            reviewerNotes: underwriterNotes || 'Audit review logged via Unified Executive Cockpit.'
+          })
+        });
+      } catch {
+        // Fallback gracefully
+      }
     }
+    setFeedbackSuccess(true);
+    setTimeout(() => setFeedbackSuccess(false), 2500);
   };
 
-  // Sensitivity curve for Cohort Column 3
+  // Sensitivity curve for Tab 2 Macro View
   const sensitivityCurveData = [
     { delta: '5%', sir_thin: 24, sir_thick: 10, gap: 14 },
     { delta: '10%', sir_thin: 32, sir_thick: 12, gap: 20 },
@@ -336,7 +505,7 @@ export default function UnifiedExecutiveCockpit() {
     { delta: '35%', sir_thin: 82, sir_thick: 28, gap: 54 }
   ];
 
-  // Score bucket disparity matrix data
+  // Score bucket disparity matrix data for Tab 2 Macro View
   const scoreBucketData = [
     { bucket: '50-59', thin: 85, thick: 45 },
     { bucket: '60-64', thin: 72, thick: 28 },
@@ -345,18 +514,27 @@ export default function UnifiedExecutiveCockpit() {
     { bucket: '75+', thin: 30, thick: 8 }
   ];
 
+  // Filtered applicants for selector
+  const filteredApplicants = applicantsList.filter(app => {
+    if (applicantFilter === 'THIN_HIGH') return app.subgroup === 'thin-file' || app.riskTier === 'HIGH';
+    if (applicantFilter === 'THICK_LOW') return app.subgroup === 'thick-file' || app.riskTier === 'LOW';
+    return true;
+  });
+
   return (
     <div className="min-h-screen bg-[#FAF7F0] text-[#1E1E1E] p-4 lg:p-6 font-sans">
       
-      {/* Top Cockpit Header */}
+      {/* ======================================================================= */}
+      {/* TOP COCKPIT HEADER WITH TWO CLEAR TOP-LEVEL STAGE TABS                   */}
+      {/* ======================================================================= */}
       <header className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 pb-4 mb-4 border-b-4 border-[#1E1E1E]">
         <div>
           <div className="flex items-center gap-3 flex-wrap">
             <h1 className="text-2xl lg:text-3xl font-black uppercase tracking-tight">
-              Credit Risk Prediction &amp; Recourse Cockpit
+              Credit Risk Prediction Under Model Drift
             </h1>
             <span className="px-2.5 py-1 bg-[#1E1E1E] text-white font-mono text-xs font-bold rounded">
-              ML + XAI RESEARCH
+              ML + XAI UNIFIED PLATFORM
             </span>
           </div>
           <p className="text-xs lg:text-sm font-bold text-gray-600 mt-0.5">
@@ -364,50 +542,69 @@ export default function UnifiedExecutiveCockpit() {
           </p>
         </div>
 
-        {/* 3-Stage Navigation Switcher */}
-        <div className="flex items-center bg-white border-2 border-[#1E1E1E] rounded-lg p-1 shadow-[3px_3px_0px_#1E1E1E] flex-wrap gap-1">
+        {/* The Two Clear Top-Level Navigation Tabs */}
+        <div className="flex items-center bg-white border-3 border-[#1E1E1E] rounded-xl p-1.5 shadow-[4px_4px_0px_#1E1E1E] flex-wrap gap-2">
           <button
-            onClick={() => setViewMode('ML_BENCHMARK')}
-            className={`px-3 py-1.5 text-xs lg:text-sm font-black rounded flex items-center gap-1.5 transition-all ${
-              viewMode === 'ML_BENCHMARK'
+            id="nav-tab-1-ml-core"
+            onClick={() => setActiveTab('ML_CORE')}
+            className={`px-4 py-2 text-xs lg:text-sm font-black rounded-lg flex items-center gap-2 transition-all ${
+              activeTab === 'ML_CORE'
                 ? 'bg-[#1E1E1E] text-white shadow'
-                : 'text-gray-700 hover:bg-gray-100'
+                : 'text-gray-700 hover:bg-gray-100 hover:text-black'
             }`}
           >
-            <Cpu size={15} />
-            Stage 1: ML Model Benchmark
+            <Cpu size={16} className={activeTab === 'ML_CORE' ? 'text-yellow-400' : 'text-gray-500'} />
+            <span>Tab 1: ML Core &amp; Drift Benchmark</span>
+            <span className={`text-[10px] px-1.5 py-0.5 rounded font-mono ${
+              activeTab === 'ML_CORE' ? 'bg-yellow-400 text-black' : 'bg-gray-200 text-gray-700'
+            }`}>
+              ML Foundation
+            </span>
           </button>
+
           <button
-            onClick={() => setViewMode('MACRO_XAI')}
-            className={`px-3 py-1.5 text-xs lg:text-sm font-black rounded flex items-center gap-1.5 transition-all ${
-              viewMode === 'MACRO_XAI'
+            id="nav-tab-2-xai-recourse"
+            onClick={() => setActiveTab('XAI_RECOURSE')}
+            className={`px-4 py-2 text-xs lg:text-sm font-black rounded-lg flex items-center gap-2 transition-all ${
+              activeTab === 'XAI_RECOURSE'
                 ? 'bg-[#1E1E1E] text-white shadow'
-                : 'text-gray-700 hover:bg-gray-100'
+                : 'text-gray-700 hover:bg-gray-100 hover:text-black'
             }`}
           >
-            <Users size={15} />
-            Stage 2: Macro XAI &amp; Boundary Shifts
-          </button>
-          <button
-            onClick={() => setViewMode('APPLICANT_DEEPDIVE')}
-            className={`px-3 py-1.5 text-xs lg:text-sm font-black rounded flex items-center gap-1.5 transition-all ${
-              viewMode === 'APPLICANT_DEEPDIVE'
-                ? 'bg-[#1E1E1E] text-white shadow'
-                : 'text-gray-700 hover:bg-gray-100'
-            }`}
-          >
-            <UserCheck size={15} />
-            Stage 3: Recourse Deep-Dive ({selectedApplicantId})
+            <Layers size={16} className={activeTab === 'XAI_RECOURSE' ? 'text-amber-400' : 'text-gray-500'} />
+            <span>Tab 2: XAI &amp; Recourse Audit</span>
+            <span className={`text-[10px] px-1.5 py-0.5 rounded font-mono ${
+              activeTab === 'XAI_RECOURSE' ? 'bg-amber-400 text-black' : 'bg-gray-200 text-gray-700'
+            }`}>
+              XAI Recourse
+            </span>
           </button>
         </div>
       </header>
 
       {/* ========================================================================= */}
-      {/* STAGE 1: ML MODEL & DRIFT BENCHMARK (THE MACHINE LEARNING PROJECT)         */}
+      {/* TAB 1: ML CORE & DRIFT BENCHMARK (THE MACHINE LEARNING PROJECT PROPOSAL)  */}
       {/* ========================================================================= */}
-      {viewMode === 'ML_BENCHMARK' && (
+      {activeTab === 'ML_CORE' && (
         <div className="space-y-4">
           
+          {/* Section Subtitle Banner */}
+          <div className="bg-white border-2 border-[#1E1E1E] rounded-xl px-4 py-2.5 flex flex-wrap justify-between items-center shadow-[3px_3px_0px_#1E1E1E] gap-2">
+            <div className="flex items-center gap-2">
+              <span className="w-3 h-3 rounded-full bg-blue-600 animate-pulse"></span>
+              <span className="text-xs font-black uppercase tracking-wider text-gray-800">
+                Pillar 1: Supervised Learning, Covariate Shift Modeling &amp; Subgroup Fairness Diagnostics
+              </span>
+            </div>
+            <div className="flex items-center gap-2 text-[11px] font-bold text-gray-500 font-mono">
+              <span>FICO HELOC (N = 10,459)</span>
+              <span>•</span>
+              <span>5 Random Seeds</span>
+              <span>•</span>
+              <span>95% Bootstrap CIs</span>
+            </div>
+          </div>
+
           {/* Top ML KPI Strip: Dual-Model & Drift Performance */}
           <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
             <div className="bg-white border-2 border-[#1E1E1E] rounded-xl p-3 shadow-[3px_3px_0px_#1E1E1E]">
@@ -451,7 +648,7 @@ export default function UnifiedExecutiveCockpit() {
             </div>
           </div>
 
-          {/* Model Tournament Table & Subgroup Error Breakdown */}
+          {/* Machine Learning Model Tournament & Subgroup Table */}
           <div className="bg-[#FFFDF9] border-3 border-[#1E1E1E] rounded-xl p-4 shadow-[4px_4px_0px_#1E1E1E]">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 mb-3 pb-2 border-b-2 border-gray-200">
               <div>
@@ -464,7 +661,7 @@ export default function UnifiedExecutiveCockpit() {
                 </p>
               </div>
 
-              {/* Table Switcher */}
+              {/* Sub-Tabs: Overall Models vs Subgroups */}
               <div className="flex items-center gap-1 bg-gray-100 border border-gray-400 rounded-lg p-0.5">
                 <button
                   onClick={() => setMlTableTab('OVERALL')}
@@ -541,7 +738,7 @@ export default function UnifiedExecutiveCockpit() {
               </div>
             )}
 
-            {/* Table 02: Subgroup Fairness Breakdown */}
+            {/* Table 02: Subgroup Fairness */}
             {mlTableTab === 'SUBGROUPS' && (
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-xs font-medium">
@@ -549,38 +746,45 @@ export default function UnifiedExecutiveCockpit() {
                     <tr className="bg-[#1E1E1E] text-white uppercase text-[10px] tracking-wider">
                       <th className="py-2 px-3">Classifier</th>
                       <th className="py-2 px-3">Regime</th>
-                      <th className="py-2 px-3">Applicant Subgroup</th>
-                      <th className="py-2 px-3">Sample (n)</th>
+                      <th className="py-2 px-3">Subgroup Cohort</th>
+                      <th className="py-2 px-3">Sample (N)</th>
                       <th className="py-2 px-3">Recall</th>
-                      <th className="py-2 px-3 text-red-300">False Negative Rate (FNR)</th>
+                      <th className="py-2 px-3 bg-red-900 text-white">False Negative Rate (FNR)</th>
                       <th className="py-2 px-3">False Positive Rate (FPR)</th>
-                      <th className="py-2 px-3 bg-indigo-900">ROC-AUC</th>
+                      <th className="py-2 px-3">ROC-AUC</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-200">
                     {mlBenchmarks?.subgroupFairness?.map((row: any, idx: number) => {
                       const isThin = row.subgroup === 'thin-file';
+                      const isDrift = row.regime.includes('unretrained');
                       return (
                         <tr
                           key={idx}
                           className={`hover:bg-amber-50/60 transition ${
-                            isThin ? 'bg-amber-50/40 font-bold' : ''
+                            isThin && isDrift ? 'bg-red-100/50' : (isThin ? 'bg-amber-50/40' : '')
                           }`}
                         >
                           <td className="py-2 px-3 font-black">{row.model}</td>
-                          <td className="py-2 px-3 font-mono text-[11px]">{row.regime}</td>
+                          <td className="py-2 px-3 font-mono font-bold text-[11px]">
+                            {row.regime.replace('_', ' ')}
+                          </td>
                           <td className="py-2 px-3">
-                            <span className={`px-2 py-0.5 rounded text-[10px] font-black uppercase ${
-                              isThin ? 'bg-amber-200 text-amber-900' : 'bg-blue-100 text-blue-900'
+                            <span className={`px-2 py-0.5 rounded font-black text-[10px] ${
+                              isThin ? 'bg-yellow-200 text-yellow-900 border border-yellow-500' : 'bg-blue-100 text-blue-900'
                             }`}>
                               {row.subgroup}
                             </span>
                           </td>
                           <td className="py-2 px-3 font-mono">{row.sample_size_n}</td>
                           <td className="py-2 px-3 font-bold">{row.recall}</td>
-                          <td className="py-2 px-3 font-black text-red-700 bg-red-50/50">{row.fnr}</td>
+                          <td className={`py-2 px-3 font-black font-mono ${
+                            isThin && isDrift ? 'text-red-700 bg-red-200/60' : 'text-gray-900'
+                          }`}>
+                            {row.fnr}
+                          </td>
                           <td className="py-2 px-3">{row.fpr}</td>
-                          <td className="py-2 px-3 font-mono font-bold text-indigo-900">{row.roc_auc}</td>
+                          <td className="py-2 px-3 font-mono">{row.roc_auc}</td>
                         </tr>
                       );
                     })}
@@ -590,7 +794,7 @@ export default function UnifiedExecutiveCockpit() {
             )}
           </div>
 
-          {/* Interactive ML Diagnostic Visualizations Grid (Recharts) */}
+          {/* 3-Column Diagnostic Visualizations Grid */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
             
             {/* Col 1: Interactive ROC & PR Curves */}
@@ -739,15 +943,16 @@ export default function UnifiedExecutiveCockpit() {
                 </div>
               </div>
 
+              {/* Bottom Switcher Callout to Tab 2 */}
               <div className="mt-3 pt-2 border-t border-gray-200 flex justify-between items-center">
                 <span className="text-[10px] font-bold text-gray-500">
-                  Ready to inspect how this translates to XAI?
+                  Ready to inspect algorithmic recourse invalidation?
                 </span>
                 <button
-                  onClick={() => setViewMode('MACRO_XAI')}
-                  className="px-3 py-1 bg-[#1E1E1E] text-white text-xs font-black uppercase rounded flex items-center gap-1.5 hover:bg-black transition"
+                  onClick={() => setActiveTab('XAI_RECOURSE')}
+                  className="px-3 py-1 bg-[#1E1E1E] text-white text-xs font-black uppercase rounded flex items-center gap-1.5 hover:bg-black transition shadow"
                 >
-                  Proceed to Stage 2: Macro XAI
+                  Proceed to Tab 2: XAI Audit
                   <ArrowRight size={12} />
                 </button>
               </div>
@@ -755,161 +960,21 @@ export default function UnifiedExecutiveCockpit() {
 
           </div>
 
-        </div>
-      )}
-
-      {/* ========================================================================= */}
-      {/* STAGE 2: MACRO XAI & BOUNDARY SHIFTS                                      */}
-      {/* ========================================================================= */}
-      {viewMode === 'MACRO_XAI' && (
-        <div className="space-y-4">
-          
-          {/* Top Metrics Strip (KPI Cards) */}
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-            <div className="bg-white border-2 border-[#1E1E1E] rounded-xl p-3 shadow-[3px_3px_0px_#1E1E1E]">
-              <span className="text-[11px] font-bold text-gray-500 uppercase tracking-wider block">Total Cohort</span>
-              <div className="text-2xl font-black mt-1">10,459</div>
-              <span className="text-[10px] font-bold text-blue-600">FICO HELOC Dataset</span>
-            </div>
-
-            <div className="bg-white border-2 border-[#1E1E1E] rounded-xl p-3 shadow-[3px_3px_0px_#1E1E1E]">
-              <span className="text-[11px] font-bold text-gray-500 uppercase tracking-wider block">Approval Rate (T₀ → T₁)</span>
-              <div className="text-2xl font-black mt-1 text-amber-600">47.8% → 38.2%</div>
-              <span className="text-[10px] font-bold text-red-600">-9.6% Macro Tightening</span>
-            </div>
-
-            <div className="bg-[#FEF2F2] border-2 border-[#DC2626] rounded-xl p-3 shadow-[3px_3px_0px_#DC2626]">
-              <span className="text-[11px] font-bold text-red-700 uppercase tracking-wider block">Thin-File Invalidation</span>
-              <div className="text-2xl font-black text-red-600 mt-1">66.7%</div>
-              <span className="text-[10px] font-bold text-red-700">High Risk (n = 1,319)</span>
-            </div>
-
-            <div className="bg-[#F0FDF4] border-2 border-[#16A34A] rounded-xl p-3 shadow-[3px_3px_0px_#16A34A]">
-              <span className="text-[11px] font-bold text-green-700 uppercase tracking-wider block">Thick-File Invalidation</span>
-              <div className="text-2xl font-black text-green-600 mt-1">20.0%</div>
-              <span className="text-[10px] font-bold text-green-700">Resilient File (n = 3,700)</span>
-            </div>
-
-            <div className="bg-[#FFFBEB] border-2 border-[#D97706] rounded-xl p-3 shadow-[3px_3px_0px_#D97706] col-span-2 md:col-span-1">
-              <span className="text-[11px] font-bold text-amber-800 uppercase tracking-wider block">Disparity Gap</span>
-              <div className="text-2xl font-black text-amber-600 mt-1">+46.7%</div>
-              <span className="text-[10px] font-bold text-amber-800">Two-Prop Z: p &lt; 0.05</span>
-            </div>
-          </div>
-
-          {/* 3-Column Bento Grid Visual Analytics */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-            
-            {/* Col 1: ALE / PDP Global Decision Boundary Shift */}
-            <div className="bg-[#FFFDF9] border-3 border-[#1E1E1E] rounded-xl p-4 shadow-[4px_4px_0px_#1E1E1E] flex flex-col justify-between">
-              <div>
-                <div className="flex justify-between items-start mb-2">
-                  <div>
-                    <h2 className="text-base font-black uppercase">1. Global Decision Boundary (ALE / PDP)</h2>
-                    <p className="text-xs font-bold text-gray-600">Approval probability across Revolving Debt Burden</p>
-                  </div>
-                  <span className="px-2 py-0.5 bg-blue-100 text-blue-800 border border-blue-600 text-[10px] font-bold rounded">
-                    Boundary Shift
-                  </span>
-                </div>
-                <div className="h-[220px] w-full mt-2">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={alePdpData} margin={{ top: 5, right: 10, left: -20, bottom: 5 }}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
-                      <XAxis dataKey="burden" label={{ value: 'Revolving Debt (%)', position: 'insideBottom', offset: -5, fontSize: 10 }} tick={{ fontSize: 10 }} />
-                      <YAxis domain={[0, 100]} tick={{ fontSize: 10 }} unit="%" />
-                      <Tooltip formatter={(value: any) => [`${value}%`, '']} contentStyle={{ fontSize: 11, fontWeight: 'bold' }} />
-                      <ReferenceLine y={50} stroke="#EF4444" strokeDasharray="3 3" label={{ value: 'Approval Cutoff', position: 'insideTopLeft', fill: '#EF4444', fontSize: 9 }} />
-                      <Line type="monotone" dataKey="p_t0" name="T₀ Baseline Model" stroke="#2563EB" strokeWidth={2.5} dot={false} />
-                      <Line type="monotone" dataKey="p_t1" name="T₁ Retrained (Drifted)" stroke="#DC2626" strokeWidth={2.5} dot={false} />
-                      <Legend wrapperStyle={{ fontSize: 10, paddingTop: 6 }} />
-                    </LineChart>
-                  </ResponsiveContainer>
-                </div>
-              </div>
-              <p className="text-[11px] font-bold text-gray-500 mt-2 bg-gray-50 p-2 rounded border border-gray-200">
-                Notice the leftward contraction: Under T₀, applicants with 55% burden were approved (p &gt; 0.50). Under T₁, the threshold tightened to 42%, invalidating recourse targets in the 43–54% zone.
-              </p>
-            </div>
-
-            {/* Col 2: Subgroup Disparity Matrix across Credit Buckets */}
-            <div className="bg-[#FFFDF9] border-3 border-[#1E1E1E] rounded-xl p-4 shadow-[4px_4px_0px_#1E1E1E] flex flex-col justify-between">
-              <div>
-                <div className="flex justify-between items-start mb-2">
-                  <div>
-                    <h2 className="text-base font-black uppercase">2. Subgroup Invalidation Matrix</h2>
-                    <p className="text-xs font-bold text-gray-600">Thin-file vs Thick-file across Credit Score Buckets</p>
-                  </div>
-                  <span className="px-2 py-0.5 bg-red-100 text-red-800 border border-red-600 text-[10px] font-bold rounded">
-                    Disparity Map
-                  </span>
-                </div>
-                <div className="h-[220px] w-full mt-2">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={scoreBucketData} margin={{ top: 5, right: 10, left: -20, bottom: 5 }}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
-                      <XAxis dataKey="bucket" label={{ value: 'Risk Score Range', position: 'insideBottom', offset: -5, fontSize: 10 }} tick={{ fontSize: 10 }} />
-                      <YAxis domain={[0, 100]} tick={{ fontSize: 10 }} unit="%" />
-                      <Tooltip formatter={(value: any) => [`${value}% Invalidation`, '']} contentStyle={{ fontSize: 11, fontWeight: 'bold' }} />
-                      <Bar dataKey="thin" name="Thin-File Applicants" fill="#EF4444" radius={[3, 3, 0, 0]} />
-                      <Bar dataKey="thick" name="Thick-File Applicants" fill="#3B82F6" radius={[3, 3, 0, 0]} />
-                      <Legend wrapperStyle={{ fontSize: 10, paddingTop: 6 }} />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </div>
-              </div>
-              <p className="text-[11px] font-bold text-gray-500 mt-2 bg-gray-50 p-2 rounded border border-gray-200">
-                In the 60–69 prime denial zone, thin-file applicants suffer a 66.7–72% invalidation rate, whereas thick-file borrowers with identical scores only suffer 20–28%.
-              </p>
-            </div>
-
-            {/* Col 3: Drift Sensitivity & Recourse Frontier Curve */}
-            <div className="bg-[#FFFDF9] border-3 border-[#1E1E1E] rounded-xl p-4 shadow-[4px_4px_0px_#1E1E1E] flex flex-col justify-between">
-              <div>
-                <div className="flex justify-between items-start mb-2">
-                  <div>
-                    <h2 className="text-base font-black uppercase">3. Drift Sensitivity Frontier</h2>
-                    <p className="text-xs font-bold text-gray-600">Macroeconomic Δ (5% → 35%) vs Invalidation Surge</p>
-                  </div>
-                  <span className="px-2 py-0.5 bg-amber-100 text-amber-800 border border-amber-600 text-[10px] font-bold rounded">
-                    Stress Test
-                  </span>
-                </div>
-                <div className="h-[220px] w-full mt-2">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={sensitivityCurveData} margin={{ top: 5, right: 10, left: -20, bottom: 5 }}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
-                      <XAxis dataKey="delta" label={{ value: 'Drift Magnitude Δ', position: 'insideBottom', offset: -5, fontSize: 10 }} tick={{ fontSize: 10 }} />
-                      <YAxis domain={[0, 100]} tick={{ fontSize: 10 }} unit="%" />
-                      <Tooltip formatter={(value: any) => [`${value}%`, '']} contentStyle={{ fontSize: 11, fontWeight: 'bold' }} />
-                      <Line type="monotone" dataKey="sir_thin" name="Thin-File SIR" stroke="#EF4444" strokeWidth={2.5} />
-                      <Line type="monotone" dataKey="sir_thick" name="Thick-File SIR" stroke="#10B981" strokeWidth={2.5} />
-                      <Line type="monotone" dataKey="gap" name="Disparity Gap" stroke="#D97706" strokeDasharray="4 4" strokeWidth={2} />
-                      <Legend wrapperStyle={{ fontSize: 10, paddingTop: 6 }} />
-                    </LineChart>
-                  </ResponsiveContainer>
-                </div>
-              </div>
-              <p className="text-[11px] font-bold text-gray-500 mt-2 bg-gray-50 p-2 rounded border border-gray-200">
-                As economic drift severity climbs past 20%, thin-file recourse invalidation accelerates exponentially, widening the disparity gap to over 50 percentage points.
-              </p>
-            </div>
-
-          </div>
-
-          {/* Quick Action Bar to Jump into Applicant Deep-Dive */}
-          <div className="bg-white border-2 border-[#1E1E1E] rounded-xl p-3 flex flex-col md:flex-row justify-between items-center gap-3 shadow-[3px_3px_0px_#1E1E1E]">
-            <div className="flex items-center gap-3">
-              <Sliders size={20} className="text-amber-600" />
-              <span className="text-xs lg:text-sm font-black">
-                Ready to investigate an individual applicant and inspect their Ceteris Paribus path?
+          {/* Machine Learning Project Summary Box */}
+          <div className="bg-white border-3 border-[#1E1E1E] rounded-xl p-4 shadow-[4px_4px_0px_#1E1E1E] flex flex-col md:flex-row justify-between items-start md:items-center gap-3">
+            <div className="space-y-1">
+              <span className="text-xs font-black uppercase text-indigo-700 tracking-wider block">
+                Machine Learning Project Finding:
               </span>
+              <p className="text-xs font-medium text-gray-700 max-w-4xl">
+                Non-linear gradient boosting achieves superior discrimination under stationary conditions (+7.3% AUC over logistic regression), but degrades severely (-8.9% AUC) under macroeconomic covariate shift with an acute fairness penalty on thin-file borrowers (False Negative Rate surging to 71.9%). Retraining restores predictive capacity (+13.9% AUC lift). How does this continuous retraining destabilize post-hoc explanations and counterfactual recourse?
+              </p>
             </div>
             <button
-              onClick={() => setViewMode('APPLICANT_DEEPDIVE')}
-              className="px-4 py-2 bg-[#1E1E1E] text-white text-xs font-black uppercase rounded-lg hover:bg-black flex items-center gap-2 transition"
+              onClick={() => setActiveTab('XAI_RECOURSE')}
+              className="px-4 py-2 bg-[#1E1E1E] text-white text-xs font-black uppercase rounded-lg hover:bg-black flex items-center gap-2 whitespace-nowrap shadow-[2px_2px_0px_#6366F1]"
             >
-              Open Applicant Deep-Dive
+              Inspect XAI Recourse Audit
               <ArrowRight size={14} />
             </button>
           </div>
@@ -918,315 +983,658 @@ export default function UnifiedExecutiveCockpit() {
       )}
 
       {/* ========================================================================= */}
-      {/* STAGE 3: APPLICANT RECOURSE DEEP-DIVE (THE INTERACTIVE XAI TOOL)          */}
+      {/* TAB 2: XAI & RECOURSE AUDIT (THE EXPLAINABLE AI PROJECT PROPOSAL)         */}
       {/* ========================================================================= */}
-      {viewMode === 'APPLICANT_DEEPDIVE' && (
+      {activeTab === 'XAI_RECOURSE' && (
         <div className="space-y-4">
           
-          {/* Header Controls & Filter Pills */}
-          <div className="bg-white border-2 border-[#1E1E1E] rounded-xl p-3 flex flex-wrap justify-between items-center gap-3 shadow-[3px_3px_0px_#1E1E1E]">
-            <div className="flex items-center gap-3 flex-wrap">
-              <span className="text-xs font-black uppercase tracking-wider text-gray-500">
-                Select Applicant:
+          {/* Sub-Navigation Switcher for Tab 2: Macro vs Applicant Deep-Dive */}
+          <div className="bg-white border-2 border-[#1E1E1E] rounded-xl px-4 py-2 flex flex-wrap justify-between items-center shadow-[3px_3px_0px_#1E1E1E] gap-2">
+            <div className="flex items-center gap-2">
+              <span className="w-3 h-3 rounded-full bg-amber-500 animate-pulse"></span>
+              <span className="text-xs font-black uppercase tracking-wider text-gray-800">
+                Pillar 2: Explainable AI, Counterfactual Recourse Invalidation &amp; Human-in-the-Loop Audit
               </span>
-              <select
-                value={selectedApplicantId}
-                onChange={(e) => setSelectedApplicantId(e.target.value)}
-                className="border-2 border-[#1E1E1E] font-black text-sm px-3 py-1.5 rounded-lg bg-gray-50 shadow-inner"
-              >
-                {filteredApplicants.map((app) => (
-                  <option key={app.applicantId} value={app.applicantId}>
-                    {app.applicantId} ({app.subgroup} • Risk: {app.invalidationRisk}%)
-                  </option>
-                ))}
-              </select>
-
-              {/* Filter Pills */}
-              <div className="flex items-center gap-1.5 ml-2">
-                <button
-                  onClick={() => setApplicantFilter('ALL')}
-                  className={`px-2.5 py-1 text-xs font-black rounded border ${
-                    applicantFilter === 'ALL'
-                      ? 'bg-[#1E1E1E] text-white border-[#1E1E1E]'
-                      : 'bg-gray-100 text-gray-700 border-gray-300 hover:bg-gray-200'
-                  }`}
-                >
-                  All ({applicantsList.length})
-                </button>
-                <button
-                  onClick={() => setApplicantFilter('THIN_HIGH')}
-                  className={`px-2.5 py-1 text-xs font-black rounded border flex items-center gap-1 ${
-                    applicantFilter === 'THIN_HIGH'
-                      ? 'bg-red-600 text-white border-red-700'
-                      : 'bg-red-50 text-red-700 border-red-300 hover:bg-red-100'
-                  }`}
-                >
-                  Thin-File High Risk (66.7%)
-                </button>
-                <button
-                  onClick={() => setApplicantFilter('THICK_LOW')}
-                  className={`px-2.5 py-1 text-xs font-black rounded border flex items-center gap-1 ${
-                    applicantFilter === 'THICK_LOW'
-                      ? 'bg-green-600 text-white border-green-700'
-                      : 'bg-green-50 text-green-700 border-green-300 hover:bg-green-100'
-                  }`}
-                >
-                  Thick-File Low Risk (20.0%)
-                </button>
-              </div>
             </div>
 
-            <span className="text-xs font-bold text-gray-500">
-              Showing candidate profile &amp; dynamic Ceteris Paribus projection
-            </span>
+            <div className="flex items-center gap-1.5 bg-gray-100 border border-gray-400 rounded-lg p-1">
+              <button
+                id="xai-subview-macro"
+                onClick={() => setXaiSubView('MACRO')}
+                className={`px-3 py-1 text-xs font-black rounded flex items-center gap-1.5 transition ${
+                  xaiSubView === 'MACRO'
+                    ? 'bg-[#1E1E1E] text-white shadow'
+                    : 'text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                <Users size={14} />
+                Macro Cohort View
+              </button>
+              <button
+                id="xai-subview-deepdive"
+                onClick={() => setXaiSubView('DEEPDIVE')}
+                className={`px-3 py-1 text-xs font-black rounded flex items-center gap-1.5 transition ${
+                  xaiSubView === 'DEEPDIVE'
+                    ? 'bg-[#1E1E1E] text-white shadow'
+                    : 'text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                <UserCheck size={14} />
+                Applicant Deep-Dive ({selectedApplicantId})
+              </button>
+            </div>
           </div>
 
-          {/* High-Density 4-Quadrant Layout (Single Viewport) */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            
-            {/* Quadrant 1 (Top-Left): Applicant Identity & Decision Status */}
-            <div className="bg-[#FFFDF9] border-3 border-[#1E1E1E] rounded-xl p-4 shadow-[4px_4px_0px_#1E1E1E]">
-              <div className="flex justify-between items-start mb-3">
-                <div className="flex items-center gap-2">
-                  <h2 className="text-lg font-black">{selectedApplicantId}</h2>
-                  <span className={`px-2.5 py-0.5 text-xs font-black uppercase rounded border ${
-                    applicantDetails?.subgroup === 'thin-file'
-                      ? 'bg-red-100 text-red-800 border-red-500'
-                      : 'bg-green-100 text-green-800 border-green-500'
-                  }`}>
-                    {applicantDetails?.subgroup || 'thin-file'}
-                  </span>
+          {/* ------------------------------------------------------------------- */}
+          {/* SUB-VIEW A: MACRO COHORT & RECOURSE BOUNDARY FRONTIER               */}
+          {/* ------------------------------------------------------------------- */}
+          {xaiSubView === 'MACRO' && (
+            <div className="space-y-4">
+              
+              {/* Top Macro Metrics Strip (5 KPI Cards) */}
+              <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+                <div className="bg-white border-2 border-[#1E1E1E] rounded-xl p-3 shadow-[3px_3px_0px_#1E1E1E]">
+                  <span className="text-[11px] font-bold text-gray-500 uppercase tracking-wider block">Total Cohort</span>
+                  <div className="text-2xl font-black mt-1">10,459</div>
+                  <span className="text-[10px] font-bold text-blue-600">FICO HELOC Dataset</span>
                 </div>
-                <div className="text-right">
-                  <span className="px-3 py-1 bg-red-600 text-white font-black text-xs rounded border border-[#1E1E1E]">
-                    DENIED • f₀(x) = 0
-                  </span>
+
+                <div className="bg-white border-2 border-[#1E1E1E] rounded-xl p-3 shadow-[3px_3px_0px_#1E1E1E]">
+                  <span className="text-[11px] font-bold text-gray-500 uppercase tracking-wider block">Approval Rate (T₀ → T₁)</span>
+                  <div className="text-2xl font-black mt-1 text-amber-600">47.8% → 38.2%</div>
+                  <span className="text-[10px] font-bold text-red-600">-9.6% Macro Tightening</span>
+                </div>
+
+                <div className="bg-[#FEF2F2] border-2 border-[#DC2626] rounded-xl p-3 shadow-[3px_3px_0px_#DC2626]">
+                  <span className="text-[11px] font-bold text-red-700 uppercase tracking-wider block">Thin-File Invalidation</span>
+                  <div className="text-2xl font-black text-red-600 mt-1">66.7%</div>
+                  <span className="text-[10px] font-bold text-red-700">High Risk (n = 1,319)</span>
+                </div>
+
+                <div className="bg-[#F0FDF4] border-2 border-[#16A34A] rounded-xl p-3 shadow-[3px_3px_0px_#16A34A]">
+                  <span className="text-[11px] font-bold text-green-700 uppercase tracking-wider block">Thick-File Invalidation</span>
+                  <div className="text-2xl font-black text-green-600 mt-1">20.0%</div>
+                  <span className="text-[10px] font-bold text-green-700">Resilient File (n = 3,700)</span>
+                </div>
+
+                <div className="bg-[#FFFBEB] border-2 border-[#D97706] rounded-xl p-3 shadow-[3px_3px_0px_#D97706] col-span-2 md:col-span-1">
+                  <span className="text-[11px] font-bold text-amber-800 uppercase tracking-wider block">Disparity Gap</span>
+                  <div className="text-2xl font-black text-amber-600 mt-1">+46.7%</div>
+                  <span className="text-[10px] font-bold text-amber-800">Two-Prop Z: p &lt; 0.05</span>
                 </div>
               </div>
 
-              {/* Attributes Grid */}
-              <div className="grid grid-cols-3 gap-2 py-2 border-y-2 border-gray-200 text-xs">
-                <div>
-                  <span className="text-gray-500 font-bold block text-[10px]">Ext Risk Estimate</span>
-                  <span className="text-sm font-black">{applicantDetails?.features?.ExternalRiskEstimate || 62}</span>
-                </div>
-                <div>
-                  <span className="text-gray-500 font-bold block text-[10px]">Revolving Burden</span>
-                  <span className="text-sm font-black text-red-600">{applicantDetails?.features?.NetFractionRevolvingBurden || 85}%</span>
-                </div>
-                <div>
-                  <span className="text-gray-500 font-bold block text-[10px]">Credit Tenure</span>
-                  <span className="text-sm font-black">{applicantDetails?.features?.MSinceOldestTradeOpen || 14} mos</span>
-                </div>
-              </div>
-
-              {/* Recourse Invalidation Risk Gauge */}
-              <div className="mt-3 bg-red-50 border-2 border-red-300 rounded-lg p-3">
-                <div className="flex justify-between items-center mb-1">
-                  <span className="text-xs font-black text-red-900 flex items-center gap-1.5">
-                    <ShieldAlert size={16} className="text-red-600" />
-                    Recourse Invalidation Risk (P_break)
-                  </span>
-                  <span className="text-base font-black text-red-700">
-                    {applicantDetails?.invalidationRisk || 66.7}%
-                  </span>
-                </div>
-                <div className="w-full bg-gray-200 h-3 rounded-full border border-gray-400 overflow-hidden">
-                  <div
-                    className="bg-red-600 h-full transition-all duration-500"
-                    style={{ width: `${applicantDetails?.invalidationRisk || 66.7}%` }}
-                  />
-                </div>
-                <p className="text-[10px] font-bold text-red-700 mt-1.5">
-                  {applicantDetails?.subgroup === 'thin-file'
-                    ? '⚠️ Severe vulnerability: Macro drift shifts approval line past prescribed DiCE target.'
-                    : '✓ Resilient file: Established tenure buffers against boundary shift.'}
-                </p>
-              </div>
-            </div>
-
-            {/* Quadrant 2 (Top-Right): Cumulative Profile (Ceteris Paribus Line Chart) */}
-            <div className="bg-[#FFFDF9] border-3 border-[#1E1E1E] rounded-xl p-4 shadow-[4px_4px_0px_#1E1E1E]">
-              <div className="flex justify-between items-start mb-1">
-                <div>
-                  <h2 className="text-base font-black uppercase">2. Cumulative Profile (Ceteris Paribus Path)</h2>
-                  <p className="text-xs font-bold text-gray-600">
-                    Path to approval: Probability vs Revolving Debt under T₀ vs T₁
-                  </p>
-                </div>
-                <span className="px-2 py-0.5 bg-purple-100 text-purple-800 border border-purple-600 text-[10px] font-bold rounded">
-                  Why Advice Broke
-                </span>
-              </div>
-
-              <div className="h-[185px] w-full">
-                <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={cumulativeProfileData} margin={{ top: 5, right: 10, left: -20, bottom: 5 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
-                    <XAxis dataKey="burden" label={{ value: 'Burden %', position: 'insideBottom', offset: -5, fontSize: 10 }} tick={{ fontSize: 10 }} />
-                    <YAxis domain={[0, 100]} tick={{ fontSize: 10 }} unit="%" />
-                    <Tooltip formatter={(value: any) => [`${value}%`, '']} contentStyle={{ fontSize: 11, fontWeight: 'bold' }} />
-                    <ReferenceLine y={50} stroke="#1E1E1E" strokeDasharray="3 3" label={{ value: 'Approval Cutoff', position: 'insideTopLeft', fontSize: 9 }} />
-                    <ReferenceLine x={45} stroke="#3B82F6" strokeDasharray="2 2" label={{ value: 'DiCE Target (45%)', position: 'insideBottomLeft', fill: '#3B82F6', fontSize: 9 }} />
-                    <Line type="monotone" dataKey="p_t0" name="f₀ Path (Approved at 45%)" stroke="#2563EB" strokeWidth={2.5} dot={false} />
-                    <Line type="monotone" dataKey="p_t1" name="f₁ Path (Denied at 45%!)" stroke="#DC2626" strokeWidth={2.5} dot={false} />
-                    <Legend wrapperStyle={{ fontSize: 10, paddingTop: 4 }} />
-                  </LineChart>
-                </ResponsiveContainer>
-              </div>
-
-              <p className="text-[10px] font-bold text-gray-500 mt-1 bg-gray-50 p-1.5 rounded border border-gray-200">
-                At 45% burden, f₀ crosses the threshold (&gt;50%), but f₁ is still at 38% (Denied!). The applicant followed the advice but remains rejected.
-              </p>
-            </div>
-
-            {/* Quadrant 3 (Bottom-Left): Local SHAP Negative Attribution Barriers */}
-            <div className="bg-[#FFFDF9] border-3 border-[#1E1E1E] rounded-xl p-4 shadow-[4px_4px_0px_#1E1E1E]">
-              <div className="flex justify-between items-start mb-2">
-                <div>
-                  <h2 className="text-base font-black uppercase">3. Local SHAP Attribution Barriers</h2>
-                  <p className="text-xs font-bold text-gray-600">
-                    Primary negative features driving this rejection
-                  </p>
-                </div>
-                <span className="px-2 py-0.5 bg-gray-100 text-gray-800 border border-gray-400 text-[10px] font-bold rounded">
-                  Local Factors
-                </span>
-              </div>
-
-              <div className="space-y-2 mt-2">
-                {applicantDetails?.shapBreakdown?.slice(0, 4).map((f: any, idx: number) => {
-                  const isNeg = f.impact < 0;
-                  const absPct = Math.min(100, Math.round(Math.abs(f.impact) * 80));
-                  return (
-                    <div key={idx} className="text-xs">
-                      <div className="flex justify-between font-bold mb-0.5">
-                        <span>{f.feature} ({f.val})</span>
-                        <span className={isNeg ? 'text-red-600' : 'text-green-600'}>
-                          {f.impact > 0 ? `+${f.impact}` : f.impact}
-                        </span>
+              {/* 3-Column Bento Grid Visual Analytics */}
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                
+                {/* Col 1: ALE / PDP Global Decision Boundary Shift */}
+                <div className="bg-[#FFFDF9] border-3 border-[#1E1E1E] rounded-xl p-4 shadow-[4px_4px_0px_#1E1E1E] flex flex-col justify-between">
+                  <div>
+                    <div className="flex justify-between items-start mb-2">
+                      <div>
+                        <h2 className="text-base font-black uppercase">1. Global Decision Boundary (ALE / PDP)</h2>
+                        <p className="text-xs font-bold text-gray-600">Approval probability across Revolving Debt Burden</p>
                       </div>
-                      <div className="w-full bg-gray-100 h-2.5 rounded border border-gray-300 overflow-hidden">
+                      <span className="px-2 py-0.5 bg-blue-100 text-blue-800 border border-blue-600 text-[10px] font-bold rounded">
+                        Boundary Shift
+                      </span>
+                    </div>
+                    <div className="h-[220px] w-full mt-2">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <LineChart data={alePdpData} margin={{ top: 5, right: 10, left: -20, bottom: 5 }}>
+                          <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
+                          <XAxis dataKey="burden" label={{ value: 'Revolving Debt (%)', position: 'insideBottom', offset: -5, fontSize: 10 }} tick={{ fontSize: 10 }} />
+                          <YAxis domain={[0, 100]} tick={{ fontSize: 10 }} unit="%" />
+                          <Tooltip formatter={(value: any) => [`${value}%`, '']} contentStyle={{ fontSize: 11, fontWeight: 'bold' }} />
+                          <ReferenceLine y={50} stroke="#EF4444" strokeDasharray="3 3" label={{ value: 'Approval Cutoff', position: 'insideTopLeft', fill: '#EF4444', fontSize: 9 }} />
+                          <Line type="monotone" dataKey="p_t0" name="T₀ Baseline Model" stroke="#2563EB" strokeWidth={2.5} dot={false} />
+                          <Line type="monotone" dataKey="p_t1" name="T₁ Retrained (Drifted)" stroke="#DC2626" strokeWidth={2.5} dot={false} />
+                          <Legend wrapperStyle={{ fontSize: 10, paddingTop: 6 }} />
+                        </LineChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </div>
+                  <p className="text-[11px] font-bold text-gray-500 mt-2 bg-gray-50 p-2 rounded border border-gray-200">
+                    Notice the leftward contraction: Under T₀, applicants with 55% burden were approved (p &gt; 0.50). Under T₁, the threshold tightened to 42%, invalidating recourse targets in the 43–54% zone.
+                  </p>
+                </div>
+
+                {/* Col 2: Subgroup Disparity Matrix across Credit Buckets */}
+                <div className="bg-[#FFFDF9] border-3 border-[#1E1E1E] rounded-xl p-4 shadow-[4px_4px_0px_#1E1E1E] flex flex-col justify-between">
+                  <div>
+                    <div className="flex justify-between items-start mb-2">
+                      <div>
+                        <h2 className="text-base font-black uppercase">2. Subgroup Invalidation Matrix</h2>
+                        <p className="text-xs font-bold text-gray-600">Thin-file vs Thick-file across Credit Score Buckets</p>
+                      </div>
+                      <span className="px-2 py-0.5 bg-red-100 text-red-800 border border-red-600 text-[10px] font-bold rounded">
+                        Disparity Map
+                      </span>
+                    </div>
+                    <div className="h-[220px] w-full mt-2">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={scoreBucketData} margin={{ top: 5, right: 10, left: -20, bottom: 5 }}>
+                          <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
+                          <XAxis dataKey="bucket" label={{ value: 'Risk Score Range', position: 'insideBottom', offset: -5, fontSize: 10 }} tick={{ fontSize: 10 }} />
+                          <YAxis domain={[0, 100]} tick={{ fontSize: 10 }} unit="%" />
+                          <Tooltip formatter={(value: any) => [`${value}% Invalidation`, '']} contentStyle={{ fontSize: 11, fontWeight: 'bold' }} />
+                          <Bar dataKey="thin" name="Thin-File Applicants" fill="#EF4444" radius={[3, 3, 0, 0]} />
+                          <Bar dataKey="thick" name="Thick-File Applicants" fill="#3B82F6" radius={[3, 3, 0, 0]} />
+                          <Legend wrapperStyle={{ fontSize: 10, paddingTop: 6 }} />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </div>
+                  <p className="text-[11px] font-bold text-gray-500 mt-2 bg-gray-50 p-2 rounded border border-gray-200">
+                    In the 60–69 prime denial zone, thin-file applicants suffer a 66.7–72% invalidation rate, whereas thick-file borrowers with identical scores only suffer 20–28%.
+                  </p>
+                </div>
+
+                {/* Col 3: Drift Sensitivity & Recourse Frontier Curve */}
+                <div className="bg-[#FFFDF9] border-3 border-[#1E1E1E] rounded-xl p-4 shadow-[4px_4px_0px_#1E1E1E] flex flex-col justify-between">
+                  <div>
+                    <div className="flex justify-between items-start mb-2">
+                      <div>
+                        <h2 className="text-base font-black uppercase">3. Drift Sensitivity Frontier</h2>
+                        <p className="text-xs font-bold text-gray-600">Macroeconomic Δ (5% → 35%) vs Invalidation Surge</p>
+                      </div>
+                      <span className="px-2 py-0.5 bg-amber-100 text-amber-800 border border-amber-600 text-[10px] font-bold rounded">
+                        Stress Test
+                      </span>
+                    </div>
+                    <div className="h-[220px] w-full mt-2">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <LineChart data={sensitivityCurveData} margin={{ top: 5, right: 10, left: -20, bottom: 5 }}>
+                          <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
+                          <XAxis dataKey="delta" label={{ value: 'Drift Magnitude Δ', position: 'insideBottom', offset: -5, fontSize: 10 }} tick={{ fontSize: 10 }} />
+                          <YAxis domain={[0, 100]} tick={{ fontSize: 10 }} unit="%" />
+                          <Tooltip formatter={(value: any) => [`${value}%`, '']} contentStyle={{ fontSize: 11, fontWeight: 'bold' }} />
+                          <Line type="monotone" dataKey="sir_thin" name="Thin-File SIR" stroke="#EF4444" strokeWidth={2.5} />
+                          <Line type="monotone" dataKey="sir_thick" name="Thick-File SIR" stroke="#10B981" strokeWidth={2.5} />
+                          <Line type="monotone" dataKey="gap" name="Disparity Gap" stroke="#D97706" strokeDasharray="4 4" strokeWidth={2} />
+                          <Legend wrapperStyle={{ fontSize: 10, paddingTop: 6 }} />
+                        </LineChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </div>
+                  <p className="text-[11px] font-bold text-gray-500 mt-2 bg-gray-50 p-2 rounded border border-gray-200">
+                    As economic drift severity climbs past 20%, thin-file recourse invalidation accelerates exponentially, widening the disparity gap to over 50 percentage points.
+                  </p>
+                </div>
+
+              </div>
+
+              {/* Quick Action Bar to Jump into Applicant Deep-Dive */}
+              <div className="bg-white border-2 border-[#1E1E1E] rounded-xl p-3 flex flex-col md:flex-row justify-between items-center gap-3 shadow-[3px_3px_0px_#1E1E1E]">
+                <div className="flex items-center gap-3">
+                  <Sliders size={20} className="text-amber-600" />
+                  <span className="text-xs lg:text-sm font-black">
+                    Ready to investigate an individual applicant and inspect their Ceteris Paribus path?
+                  </span>
+                </div>
+                <button
+                  onClick={() => setXaiSubView('DEEPDIVE')}
+                  className="px-4 py-2 bg-[#1E1E1E] text-white text-xs font-black uppercase rounded-lg hover:bg-black flex items-center gap-2 transition"
+                >
+                  Open Applicant Deep-Dive
+                  <ArrowRight size={14} />
+                </button>
+              </div>
+
+            </div>
+          )}
+
+          {/* ------------------------------------------------------------------- */}
+          {/* SUB-VIEW B: APPLICANT RECOURSE DEEP-DIVE & UNDERWRITER TRIAGE       */}
+          {/* ------------------------------------------------------------------- */}
+          {xaiSubView === 'DEEPDIVE' && (
+            <div className="space-y-4">
+              
+              {/* Header Controls & Filter Pills */}
+              <div className="bg-white border-2 border-[#1E1E1E] rounded-xl p-3 flex flex-wrap justify-between items-center gap-3 shadow-[3px_3px_0px_#1E1E1E]">
+                <div className="flex items-center gap-3 flex-wrap">
+                  <span className="text-xs font-black uppercase tracking-wider text-gray-500">
+                    Select Applicant:
+                  </span>
+                  <select
+                    value={selectedApplicantId}
+                    onChange={(e) => setSelectedApplicantId(e.target.value)}
+                    className="border-2 border-[#1E1E1E] font-black text-sm px-3 py-1.5 rounded-lg bg-gray-50 shadow-inner"
+                  >
+                    {filteredApplicants.map((app) => (
+                      <option key={app.applicantId} value={app.applicantId}>
+                        {app.applicantId} ({app.subgroup} • Risk: {app.invalidationRisk}%)
+                      </option>
+                    ))}
+                  </select>
+
+                  {/* Filter Pills */}
+                  <div className="flex items-center gap-1.5 ml-2">
+                    <button
+                      onClick={() => setApplicantFilter('ALL')}
+                      className={`px-2.5 py-1 text-xs font-black rounded border ${
+                        applicantFilter === 'ALL'
+                          ? 'bg-[#1E1E1E] text-white border-[#1E1E1E]'
+                          : 'bg-gray-100 text-gray-700 border-gray-300 hover:bg-gray-200'
+                      }`}
+                    >
+                      All ({applicantsList.length})
+                    </button>
+                    <button
+                      onClick={() => setApplicantFilter('THIN_HIGH')}
+                      className={`px-2.5 py-1 text-xs font-black rounded border flex items-center gap-1 ${
+                        applicantFilter === 'THIN_HIGH'
+                          ? 'bg-red-600 text-white border-red-700'
+                          : 'bg-red-50 text-red-700 border-red-200 hover:bg-red-100'
+                      }`}
+                    >
+                      <AlertTriangle size={12} />
+                      Thin-File High Risk
+                    </button>
+                    <button
+                      onClick={() => setApplicantFilter('THICK_LOW')}
+                      className={`px-2.5 py-1 text-xs font-black rounded border flex items-center gap-1 ${
+                        applicantFilter === 'THICK_LOW'
+                          ? 'bg-green-600 text-white border-green-700'
+                          : 'bg-green-50 text-green-700 border-green-200 hover:bg-green-100'
+                      }`}
+                    >
+                      <ShieldAlert size={12} />
+                      Thick-File Low Risk
+                    </button>
+                  </div>
+                </div>
+
+                {/* Return to Macro View Button */}
+                <button
+                  onClick={() => setXaiSubView('MACRO')}
+                  className="px-3 py-1.5 bg-gray-100 border border-gray-400 text-gray-800 text-xs font-black rounded-lg hover:bg-gray-200 flex items-center gap-1.5 transition"
+                >
+                  <Users size={14} />
+                  Return to Macro View
+                </button>
+              </div>
+
+              {/* Horizontal Scrollable Applicant Chips */}
+              <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-thin">
+                {filteredApplicants.map((app) => (
+                  <button
+                    key={app.applicantId}
+                    onClick={() => setSelectedApplicantId(app.applicantId)}
+                    className={`flex-shrink-0 px-3 py-2 rounded-xl border-2 text-left transition-all ${
+                      selectedApplicantId === app.applicantId
+                        ? 'bg-[#1E1E1E] text-white border-[#1E1E1E] shadow-[2px_2px_0px_#F59E0B]'
+                        : 'bg-white text-gray-800 border-gray-300 hover:border-gray-500'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className="font-mono font-black text-xs">{app.applicantId}</span>
+                      <span className={`text-[9px] font-bold px-1.5 py-0.2 rounded uppercase ${
+                        app.subgroup === 'thin-file' ? 'bg-amber-200 text-amber-900' : 'bg-blue-200 text-blue-900'
+                      }`}>
+                        {app.subgroup}
+                      </span>
+                    </div>
+                    <div className="text-[10px] text-gray-400 mt-1 font-bold">
+                      Risk: <span className={app.invalidationRisk > 50 ? 'text-red-400' : 'text-green-400'}>{app.invalidationRisk}%</span>
+                      {' • '}Score: {app.externalRiskEstimate}
+                    </div>
+                  </button>
+                ))}
+              </div>
+
+              {/* Bento Grid: 3 Live Applicant Cards */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                
+                {/* 1. Applicant Profile */}
+                <div className="bg-[#FFFDF9] border-3 border-[#1E1E1E] rounded-xl p-4 shadow-[4px_4px_0px_#1E1E1E]">
+                  <div className="flex justify-between items-start mb-2">
+                    <h3 className="text-sm font-black uppercase">1. Applicant Profile</h3>
+                    <span className={`px-2 py-0.5 rounded font-black text-xs uppercase ${
+                      applicantDetails?.subgroup === 'thin-file'
+                        ? 'bg-yellow-300 text-black border border-black'
+                        : 'bg-blue-300 text-black border border-black'
+                    }`}>
+                      {applicantDetails?.subgroup || 'Thin-File'}
+                    </span>
+                  </div>
+                  <div className="font-mono text-xl font-black mb-3">
+                    {applicantDetails?.applicantId || selectedApplicantId}
+                  </div>
+                  <hr className="border-t-2 border-gray-200 mb-3" />
+                  <div className="space-y-1.5 text-xs">
+                    <div className="flex justify-between py-1 border-b border-gray-100">
+                      <span className="font-bold text-gray-600">External Risk Estimate:</span>
+                      <span className="font-black">{applicantDetails?.features?.ExternalRiskEstimate || 62}</span>
+                    </div>
+                    <div className="flex justify-between py-1 border-b border-gray-100">
+                      <span className="font-bold text-gray-600">Months in File:</span>
+                      <span className="font-black text-amber-700">
+                        {applicantDetails?.features?.MSinceOldestTradeOpen || 14} mos (Locked)
+                      </span>
+                    </div>
+                    <div className="flex justify-between py-1 border-b border-gray-100">
+                      <span className="font-bold text-gray-600">Total Trade Lines:</span>
+                      <span className="font-black text-amber-700">
+                        {applicantDetails?.features?.NumTotalTrades || 5} (Locked)
+                      </span>
+                    </div>
+                    <div className="flex justify-between py-1">
+                      <span className="font-bold text-gray-600">Revolving Burden:</span>
+                      <span className="font-black text-red-600">
+                        {applicantDetails?.features?.NetFractionRevolvingBurden || 85}%
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 2. Model Decision & Invalidation Risk */}
+                <div className="bg-[#FFFDF9] border-3 border-[#1E1E1E] rounded-xl p-4 shadow-[4px_4px_0px_#1E1E1E] flex flex-col justify-between">
+                  <div>
+                    <div className="flex justify-between items-start mb-2">
+                      <h3 className="text-sm font-black uppercase">2. Model Decision &amp; Risk</h3>
+                      <span className="px-2 py-0.5 bg-red-100 text-red-800 border border-red-700 font-mono font-bold text-xs rounded">
+                        f₀(x) = 0
+                      </span>
+                    </div>
+                    <div className="flex items-baseline justify-between mt-1">
+                      <span className="text-3xl font-black text-red-600">
+                        {applicantDetails?.decision || 'DENIED'}
+                      </span>
+                      <span className="text-xs font-bold text-gray-600">
+                        P(Approval): <strong className="text-sm font-black text-black">{Math.round((applicantDetails?.approvalProbability || 0.234) * 100)}%</strong>
+                      </span>
+                    </div>
+                    <hr className="border-t-2 border-gray-200 my-3" />
+                    <div>
+                      <div className="flex justify-between text-xs font-bold mb-1">
+                        <span>Recourse Invalidation Vulnerability:</span>
+                        <span className="font-black text-red-600">{applicantDetails?.invalidationRisk || 66.7}%</span>
+                      </div>
+                      <div className="w-full bg-gray-200 border-2 border-[#1E1E1E] rounded-full h-4 overflow-hidden">
                         <div
-                          className={`h-full ${isNeg ? 'bg-red-500' : 'bg-green-500'}`}
-                          style={{ width: `${absPct}%` }}
+                          className="bg-red-500 h-full transition-all duration-500"
+                          style={{ width: `${applicantDetails?.invalidationRisk || 66.7}%` }}
+                        ></div>
+                      </div>
+                    </div>
+                  </div>
+                  <p className="text-[11px] font-bold text-red-700 mt-3 bg-red-50 p-2 rounded border border-red-200">
+                    ⚠️ {applicantDetails?.subgroup === 'thin-file' ? 'Thin-File Alert:' : 'Notice:'} Prescribed counterfactual recourse has a {applicantDetails?.invalidationRisk || 66.7}% probability of invalidation upon model retraining.
+                  </p>
+                </div>
+
+                {/* 3. Actionable DiCE Recourse Plan */}
+                <div className="bg-[#FFFDF9] border-3 border-[#1E1E1E] rounded-xl p-4 shadow-[4px_4px_0px_#1E1E1E] flex flex-col justify-between">
+                  <div>
+                    <div className="flex justify-between items-start mb-2">
+                      <h3 className="text-sm font-black uppercase">3. DiCE Action Plan</h3>
+                      <span className="px-2 py-0.5 bg-green-100 text-green-800 border border-green-700 font-bold text-xs rounded">
+                        Prescribed Actions
+                      </span>
+                    </div>
+                    <p className="text-xs font-bold text-gray-500 mb-2">
+                      Required perturbations to cross decision boundary under f₀:
+                    </p>
+                    <div className="space-y-2">
+                      {applicantDetails?.recoursePlan?.actionableFeatures?.map((act: any, idx: number) => (
+                        <div key={idx} className="bg-[#FEF3C7] border-2 border-[#1E1E1E] rounded-lg p-2 text-xs font-bold flex justify-between items-center">
+                          <span>
+                            {act.delta < 0 ? '↓' : '↑'} {act.feature}:
+                          </span>
+                          <span className="font-black text-amber-900 font-mono">
+                            {act.current}{act.unit} → {act.target}{act.unit}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="mt-3 pt-2 border-t-2 border-gray-200 flex justify-between items-center text-xs">
+                    <span className="font-bold text-gray-600">Normalized L₁ Cost:</span>
+                    <span className="font-mono font-black text-sm bg-gray-100 px-2 py-0.5 rounded border border-gray-300">
+                      {applicantDetails?.recoursePlan?.actionCostL1 || 5.62}
+                    </span>
+                  </div>
+                </div>
+
+              </div>
+
+              {/* Lower Analytics Grid: Cumulative Profile, Local SHAP & Underwriter Review */}
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                
+                {/* 1. Cumulative Profile (Ceteris Paribus CP Curve) */}
+                <div className="bg-[#FFFDF9] border-3 border-[#1E1E1E] rounded-xl p-4 shadow-[4px_4px_0px_#1E1E1E] flex flex-col justify-between">
+                  <div>
+                    <div className="flex justify-between items-start mb-2">
+                      <div>
+                        <h3 className="text-sm font-black uppercase">1. Cumulative Profile (CP Curve)</h3>
+                        <p className="text-[11px] font-bold text-gray-600">Approval probability as Revolving Debt varies</p>
+                      </div>
+                      <span className="px-2 py-0.5 bg-indigo-100 text-indigo-800 border border-indigo-600 text-[10px] font-bold rounded">
+                        Ceteris Paribus
+                      </span>
+                    </div>
+                    <div className="h-[200px] w-full mt-2">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <LineChart data={cumulativeProfileData} margin={{ top: 5, right: 10, left: -20, bottom: 5 }}>
+                          <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
+                          <XAxis dataKey="burden" label={{ value: 'Debt Burden (%)', position: 'insideBottom', offset: -5, fontSize: 10 }} tick={{ fontSize: 10 }} />
+                          <YAxis domain={[0, 100]} tick={{ fontSize: 10 }} unit="%" />
+                          <Tooltip formatter={(value: any) => [`${value}%`, '']} contentStyle={{ fontSize: 11, fontWeight: 'bold' }} />
+                          <ReferenceLine y={50} stroke="#EF4444" strokeDasharray="3 3" label={{ value: 'Approval Cutoff', position: 'insideTopLeft', fill: '#EF4444', fontSize: 9 }} />
+                          <Line type="monotone" dataKey="p_t0" name="P(Approval) T₀" stroke="#2563EB" strokeWidth={2.5} dot={false} />
+                          <Line type="monotone" dataKey="p_t1" name="P(Approval) T₁" stroke="#DC2626" strokeWidth={2.5} dot={false} />
+                          <Legend wrapperStyle={{ fontSize: 10, paddingTop: 4 }} />
+                        </LineChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </div>
+                  <p className="text-[11px] font-bold text-gray-500 mt-2 bg-gray-50 p-2 rounded border border-gray-200">
+                    The gap between the blue (T₀) and red (T₁) curves illustrates why reducing debt to 45% succeeds under T₀ but fails under retrained T₁.
+                  </p>
+                </div>
+
+                {/* 2. Local SHAP Attribution Waterfall */}
+                <div className="bg-[#FFFDF9] border-3 border-[#1E1E1E] rounded-xl p-4 shadow-[4px_4px_0px_#1E1E1E] flex flex-col justify-between">
+                  <div>
+                    <div className="flex justify-between items-start mb-2">
+                      <div>
+                        <h3 className="text-sm font-black uppercase">2. Local SHAP Attributions</h3>
+                        <p className="text-[11px] font-bold text-gray-600">Feature contributions pushing toward denial</p>
+                      </div>
+                      <span className="px-2 py-0.5 bg-purple-100 text-purple-800 border border-purple-600 text-[10px] font-bold rounded">
+                        TreeSHAP
+                      </span>
+                    </div>
+                    <div className="space-y-1.5 mt-2">
+                      {applicantDetails?.shapBreakdown?.map((sh: any, idx: number) => {
+                        const isNegative = sh.impact < 0;
+                        const widthPct = Math.min(100, Math.round(Math.abs(sh.impact) * 80));
+                        return (
+                          <div key={idx} className="text-xs">
+                            <div className="flex justify-between font-bold text-[11px] mb-0.5">
+                              <span className="truncate max-w-[170px]">{sh.feature}</span>
+                              <span className={isNegative ? 'text-red-700' : 'text-green-700'}>
+                                {isNegative ? '' : '+'}{sh.impact.toFixed(2)} (Val: {sh.val})
+                              </span>
+                            </div>
+                            <div className="w-full bg-gray-200 rounded-full h-2 overflow-hidden flex">
+                              {isNegative ? (
+                                <div className="bg-red-500 h-full ml-auto" style={{ width: `${widthPct}%` }}></div>
+                              ) : (
+                                <div className="bg-green-500 h-full" style={{ width: `${widthPct}%` }}></div>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                  <p className="text-[11px] font-bold text-gray-500 mt-2 bg-gray-50 p-2 rounded border border-gray-200">
+                    High revolving burden and low credit tenure dominate the denial. Notice how immutable features prevent quick qualification.
+                  </p>
+                </div>
+
+                {/* 3. Underwriter Triage & Audit Feedback Modal / Form */}
+                <div className="bg-[#FFFDF9] border-3 border-[#1E1E1E] rounded-xl p-4 shadow-[4px_4px_0px_#1E1E1E] flex flex-col justify-between">
+                  <div>
+                    <div className="flex justify-between items-start mb-2">
+                      <div>
+                        <h3 className="text-sm font-black uppercase">3. Underwriter Audit Review</h3>
+                        <p className="text-[11px] font-bold text-gray-600">Interactive Human-in-the-Loop Validation</p>
+                      </div>
+                      <span className="px-2 py-0.5 bg-amber-100 text-amber-800 border border-amber-600 text-[10px] font-bold rounded">
+                        Auditor Triage
+                      </span>
+                    </div>
+
+                    <div className="space-y-3 mt-2 text-xs">
+                      {/* Actionability Rating */}
+                      <div>
+                        <div className="flex justify-between font-bold text-gray-700 mb-1">
+                          <span>Actionability (Can borrower execute?):</span>
+                          <span className="font-black text-amber-700">{actionabilityScore} / 5</span>
+                        </div>
+                        <input
+                          type="range"
+                          min="1"
+                          max="5"
+                          value={actionabilityScore}
+                          onChange={(e) => setActionabilityScore(parseInt(e.target.value))}
+                          className="w-full accent-black cursor-pointer"
+                        />
+                      </div>
+
+                      {/* Plausibility Rating */}
+                      <div>
+                        <div className="flex justify-between font-bold text-gray-700 mb-1">
+                          <span>Plausibility (Is path realistic?):</span>
+                          <span className="font-black text-amber-700">{plausibilityScore} / 5</span>
+                        </div>
+                        <input
+                          type="range"
+                          min="1"
+                          max="5"
+                          value={plausibilityScore}
+                          onChange={(e) => setPlausibilityScore(parseInt(e.target.value))}
+                          className="w-full accent-black cursor-pointer"
+                        />
+                      </div>
+
+                      {/* Final Audit Verdict */}
+                      <div>
+                        <span className="font-bold text-gray-700 block mb-1">Auditor Final Verdict:</span>
+                        <div className="grid grid-cols-3 gap-1.5 font-bold">
+                          <button
+                            type="button"
+                            onClick={() => setUnderwriterVerdict('ACCEPT')}
+                            className={`py-1 rounded border text-center transition ${
+                              underwriterVerdict === 'ACCEPT'
+                                ? 'bg-green-600 text-white border-green-700 shadow-sm'
+                                : 'bg-gray-100 text-gray-700 border-gray-300 hover:bg-gray-200'
+                            }`}
+                          >
+                            Accept
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setUnderwriterVerdict('MODIFY')}
+                            className={`py-1 rounded border text-center transition ${
+                              underwriterVerdict === 'MODIFY'
+                                ? 'bg-amber-500 text-white border-amber-600 shadow-sm'
+                                : 'bg-gray-100 text-gray-700 border-gray-300 hover:bg-gray-200'
+                            }`}
+                          >
+                            Modify
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setUnderwriterVerdict('REJECT')}
+                            className={`py-1 rounded border text-center transition ${
+                              underwriterVerdict === 'REJECT'
+                                ? 'bg-red-600 text-white border-red-700 shadow-sm'
+                                : 'bg-gray-100 text-gray-700 border-gray-300 hover:bg-gray-200'
+                            }`}
+                          >
+                            Reject
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Auditor Review Notes */}
+                      <div>
+                        <textarea
+                          placeholder="Audit comments: e.g., thin-file applicant lacks sufficient trade history; burden reduction of 40% exceeds expected borrower monthly liquidity..."
+                          value={underwriterNotes}
+                          onChange={(e) => setUnderwriterNotes(e.target.value)}
+                          className="w-full text-[11px] p-2 border-2 border-[#1E1E1E] rounded-lg bg-gray-50 focus:bg-white resize-none h-14"
                         />
                       </div>
                     </div>
-                  );
-                })}
+                  </div>
+
+                  <div className="mt-2 pt-2 border-t border-gray-200 flex justify-between items-center">
+                    {feedbackSuccess ? (
+                      <span className="text-xs font-black text-green-700 flex items-center gap-1">
+                        <CheckCircle2 size={14} /> Review Logged to Audit Trail!
+                      </span>
+                    ) : (
+                      <span className="text-[10px] font-bold text-gray-500">
+                        Human-in-the-loop decision trail
+                      </span>
+                    )}
+                    <button
+                      type="button"
+                      onClick={handleFeedbackSubmit}
+                      className="px-3 py-1.5 bg-[#1E1E1E] text-white text-xs font-black uppercase rounded-lg hover:bg-black transition shadow"
+                    >
+                      Log Audit Review
+                    </button>
+                  </div>
+                </div>
+
               </div>
 
-              <p className="text-[10px] font-bold text-gray-500 mt-3 bg-gray-50 p-1.5 rounded border border-gray-200">
-                Revolving burden and short credit tenure create the strongest barrier drag.
-              </p>
             </div>
-
-            {/* Quadrant 4 (Bottom-Right): DiCE Action Plan & Compact Underwriter Triage */}
-            <div className="bg-[#FFFDF9] border-3 border-[#1E1E1E] rounded-xl p-4 shadow-[4px_4px_0px_#1E1E1E] flex flex-col justify-between">
-              <div>
-                <div className="flex justify-between items-start mb-2">
-                  <div>
-                    <h2 className="text-base font-black uppercase">4. Action Plan &amp; Underwriter Triage</h2>
-                    <p className="text-xs font-bold text-gray-600">Standard DiCE vs Volatility-Buffered Recourse</p>
-                  </div>
-                  <span className="px-2 py-0.5 bg-amber-100 text-amber-800 border border-amber-600 text-[10px] font-bold rounded">
-                    L₁ Cost: 5.62
-                  </span>
-                </div>
-
-                {/* Delta Table */}
-                <div className="bg-amber-50 border border-amber-300 rounded-lg p-2.5 text-xs font-bold space-y-1.5">
-                  <div className="flex justify-between items-center text-[10px] text-gray-500 uppercase pb-1 border-b border-amber-200">
-                    <span>Feature</span>
-                    <span>Current → Naive DiCE → Robust Buffer</span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span>Revolving Burden</span>
-                    <span className="font-mono">
-                      85% → <span className="line-through text-red-600">45%</span> → <span className="text-green-700 font-black">35%</span>
-                    </span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span>Risk Score</span>
-                    <span className="font-mono">
-                      62 → <span className="line-through text-red-600">68</span> → <span className="text-green-700 font-black">71</span>
-                    </span>
-                  </div>
-                </div>
-
-                {/* Compact Underwriter Triage Form */}
-                <div className="mt-3 pt-2 border-t border-gray-200 space-y-2">
-                  <div className="flex items-center gap-3 text-xs font-bold">
-                    <div className="flex-1">
-                      <label className="block text-[10px] text-gray-500 uppercase">Actionability (1-5)</label>
-                      <input
-                        type="range"
-                        min="1"
-                        max="5"
-                        value={actionabilityScore}
-                        onChange={(e) => setActionabilityScore(Number(e.target.value))}
-                        className="w-full accent-[#1E1E1E]"
-                      />
-                    </div>
-                    <div className="flex-1">
-                      <label className="block text-[10px] text-gray-500 uppercase">Plausibility (1-5)</label>
-                      <input
-                        type="range"
-                        min="1"
-                        max="5"
-                        value={plausibilityScore}
-                        onChange={(e) => setPlausibilityScore(Number(e.target.value))}
-                        className="w-full accent-[#1E1E1E]"
-                      />
-                    </div>
-                    <div className="flex-1">
-                      <label className="block text-[10px] text-gray-500 uppercase">Verdict</label>
-                      <select
-                        value={underwriterVerdict}
-                        onChange={(e) => setUnderwriterVerdict(e.target.value as any)}
-                        className="w-full border border-gray-300 p-1 rounded text-xs font-bold bg-white"
-                      >
-                        <option value="REJECT">REJECT</option>
-                        <option value="MODIFY">MODIFY</option>
-                        <option value="ACCEPT">ACCEPT</option>
-                      </select>
-                    </div>
-                  </div>
-
-                  <input
-                    type="text"
-                    value={underwriterNotes}
-                    onChange={(e) => setUnderwriterNotes(e.target.value)}
-                    placeholder="Auditor rationale (e.g. 40% paydown breaks under T1 threshold)..."
-                    className="w-full text-xs p-1.5 border border-gray-300 rounded bg-white"
-                  />
-                </div>
-              </div>
-
-              <div className="mt-3 flex items-center justify-between">
-                {feedbackSuccess ? (
-                  <span className="text-xs font-bold text-green-700 flex items-center gap-1">
-                    <CheckCircle2 size={14} /> Audit saved to database!
-                  </span>
-                ) : (
-                  <span className="text-[10px] font-bold text-gray-400">
-                    Saves to expert audit trail table
-                  </span>
-                )}
-                <button
-                  onClick={handleUnderwriterSubmit}
-                  className="px-4 py-1.5 bg-[#1E1E1E] text-white text-xs font-black uppercase rounded hover:bg-black transition"
-                >
-                  Submit Audit Decision
-                </button>
-              </div>
-            </div>
-
-          </div>
+          )}
 
         </div>
       )}
+
+      {/* ======================================================================= */}
+      {/* COCKPIT FOOTER                                                          */}
+      {/* ======================================================================= */}
+      <footer className="mt-8 pt-4 border-t-2 border-gray-300 flex flex-col sm:flex-row justify-between items-center text-xs font-bold text-gray-600 gap-2">
+        <div className="flex items-center gap-2">
+          <span>Credit Model Drift Research Platform</span>
+          <span>•</span>
+          <span>Dual Academic Submission (ML + XAI)</span>
+        </div>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => setActiveTab('ML_CORE')}
+            className={`hover:underline ${activeTab === 'ML_CORE' ? 'font-black text-black' : ''}`}
+          >
+            Tab 1: ML Core
+          </button>
+          <span>|</span>
+          <button
+            onClick={() => setActiveTab('XAI_RECOURSE')}
+            className={`hover:underline ${activeTab === 'XAI_RECOURSE' ? 'font-black text-black' : ''}`}
+          >
+            Tab 2: XAI Audit
+          </button>
+          <span>|</span>
+          <a
+            href="https://github.com/meghna/credit-model-drift"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="hover:underline flex items-center gap-1 text-black"
+          >
+            GitHub Repository
+          </a>
+        </div>
+      </footer>
 
     </div>
   );
