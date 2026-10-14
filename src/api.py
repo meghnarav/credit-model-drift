@@ -506,3 +506,59 @@ def get_ml_diagnostic_curves():
         "subgroupErrorRates": subgroup_error_rates
     }
 
+class SandboxScoreRequest(BaseModel):
+    ExternalRiskEstimate: float = 62.0
+    NetFractionRevolvingBurden: float = 65.0
+    NumTotalTrades: float = 8.0
+    MSinceOldestTradeOpen: float = 24.0
+    threshold: float = 0.50
+
+@app.post("/api/v1/ml/sandbox/score")
+def score_sandbox_applicant(req: SandboxScoreRequest):
+    """
+    Scores an arbitrary applicant under both f0 (baseline) and f1 (retrained).
+    Computes probabilities, decisions given tau, and detects decision boundary flips.
+    """
+    is_thin = (req.MSinceOldestTradeOpen <= 118.0) and (req.NumTotalTrades <= 12.0)
+    is_thick = (req.MSinceOldestTradeOpen >= 178.0) and (req.NumTotalTrades >= 20.0)
+    subgroup = "thin-file" if is_thin else ("thick-file" if is_thick else "standard")
+
+    if model_t0 is not None and model_t1 is not None and not df_full.empty:
+        median_row = df_full[features_list].median().to_dict()
+        median_row['ExternalRiskEstimate'] = req.ExternalRiskEstimate
+        median_row['NetFractionRevolvingBurden'] = req.NetFractionRevolvingBurden
+        median_row['NumTotalTrades'] = req.NumTotalTrades
+        median_row['MSinceOldestTradeOpen'] = req.MSinceOldestTradeOpen
+
+        X = pd.DataFrame([median_row])[features_list]
+        p_t0 = float(model_t0.predict_proba(X)[0, 1])
+        p_t1 = float(model_t1.predict_proba(X)[0, 1])
+    else:
+        logit0 = -4.6 + 0.095 * req.ExternalRiskEstimate - 0.045 * req.NetFractionRevolvingBurden + 0.005 * req.MSinceOldestTradeOpen + 0.035 * req.NumTotalTrades
+        logit1 = -4.3 + 0.092 * req.ExternalRiskEstimate - 0.062 * req.NetFractionRevolvingBurden + 0.007 * req.MSinceOldestTradeOpen + 0.040 * req.NumTotalTrades
+        p_t0 = float(1 / (1 + np.exp(-logit0)))
+        p_t1 = float(1 / (1 + np.exp(-logit1)))
+
+    status_t0 = "APPROVED" if p_t0 >= req.threshold else "DENIED"
+    status_t1 = "APPROVED" if p_t1 >= req.threshold else "DENIED"
+
+    flip_type = "STABLE_DENIAL"
+    if status_t0 == "APPROVED" and status_t1 == "DENIED":
+        flip_type = "DRIFT_VICTIM"
+    elif status_t0 == "APPROVED" and status_t1 == "APPROVED":
+        flip_type = "RESILIENT_APPROVAL"
+    elif status_t0 == "DENIED" and status_t1 == "APPROVED":
+        flip_type = "DRIFT_BENEFICIARY"
+
+    return {
+        "subgroup": subgroup,
+        "p_t0": round(p_t0 * 100, 1),
+        "status_t0": status_t0,
+        "p_t1": round(p_t1 * 100, 1),
+        "status_t1": status_t1,
+        "threshold": req.threshold,
+        "decision_flip": status_t0 != status_t1,
+        "flip_type": flip_type
+    }
+
+

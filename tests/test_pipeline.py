@@ -114,3 +114,24 @@ def test_ml_diagnostic_curves_endpoint():
     assert len(data["rocCurves"]) > 5
     assert len(data["prCurves"]) > 5
 
+def test_ml_sandbox_score_endpoint():
+    client = TestClient(app)
+    payload = {
+        "ExternalRiskEstimate": 70.0,
+        "NetFractionRevolvingBurden": 48.0,
+        "NumTotalTrades": 14.0,
+        "MSinceOldestTradeOpen": 75.0,
+        "threshold": 0.50
+    }
+    response = client.post("/api/v1/ml/sandbox/score", json=payload)
+    assert response.status_code == 200
+    data = response.json()
+    assert "p_t0" in data
+    assert "p_t1" in data
+    assert "status_t0" in data
+    assert "status_t1" in data
+    assert "subgroup" in data
+    assert "decision_flip" in data
+    assert "flip_type" in data
+
+

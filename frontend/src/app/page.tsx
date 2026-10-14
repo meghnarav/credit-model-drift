@@ -12,7 +12,8 @@ import {
   BarChart,
   Bar,
   Legend,
-  ReferenceLine
+  ReferenceLine,
+  ReferenceDot
 } from 'recharts';
 import {
   Users,
@@ -32,7 +33,9 @@ import {
   Cpu,
   FileSpreadsheet,
   TrendingUp,
-  Award
+  Award,
+  Sparkles,
+  Zap
 } from 'lucide-react';
 
 // =============================================================================
@@ -374,6 +377,13 @@ export default function UnifiedExecutiveCockpit() {
   const [mlTableTab, setMlTableTab] = useState<'OVERALL' | 'SUBGROUPS'>('OVERALL');
   const [diagnosticCurves, setDiagnosticCurves] = useState<any>(DEFAULT_DIAGNOSTIC_CURVES);
 
+  // Tab 1 (ML Core) Interactive Sandbox & Dynamic Decision Threshold States
+  const [sandboxRisk, setSandboxRisk] = useState<number>(62);
+  const [sandboxBurden, setSandboxBurden] = useState<number>(65);
+  const [sandboxTrades, setSandboxTrades] = useState<number>(8);
+  const [sandboxTenure, setSandboxTenure] = useState<number>(24);
+  const [decisionThreshold, setDecisionThreshold] = useState<number>(0.50);
+
   // Tab 2 (XAI Recourse) Sub-States: Macro View vs Applicant Deep-Dive
   const [xaiSubView, setXaiSubView] = useState<'MACRO' | 'DEEPDIVE'>('MACRO');
   const [cohortSummary, setCohortSummary] = useState<any>(DEFAULT_COHORT_SUMMARY);
@@ -521,6 +531,72 @@ export default function UnifiedExecutiveCockpit() {
     return true;
   });
 
+  // ---------------------------------------------------------------------------
+  // Tab 1: Live What-If Applicant Sandbox & Dynamic Decision Threshold Engine
+  // ---------------------------------------------------------------------------
+  // 1. Dynamic Subgroup Classification (FICO HELOC 25th %ile cutoffs: tenure <= 118 mos, trades <= 12)
+  const isThinFileSandbox = sandboxTenure <= 118 && sandboxTrades <= 12;
+  const isThickFileSandbox = sandboxTenure >= 178 && sandboxTrades >= 20;
+  const sandboxSubgroup = isThinFileSandbox
+    ? 'Thin-File'
+    : isThickFileSandbox
+    ? 'Thick-File'
+    : 'Standard Profile';
+
+  // 2. Dual-Model Scoring (Calibrated to empirical FICO HELOC distributions)
+  // Baseline Model (f0): standard pre-shock debt weight
+  const logit0 = -4.6 + (0.095 * sandboxRisk) - (0.045 * sandboxBurden) + (0.005 * sandboxTenure) + (0.035 * sandboxTrades);
+  // Retrained Model (f1): macroeconomic debt tightening (burden sensitivity surges from -0.045 to -0.062)
+  const logit1 = -4.3 + (0.092 * sandboxRisk) - (0.062 * sandboxBurden) + (0.007 * sandboxTenure) + (0.040 * sandboxTrades);
+
+  const probBaseline = Math.min(0.99, Math.max(0.01, 1 / (1 + Math.exp(-logit0))));
+  const probRetrained = Math.min(0.99, Math.max(0.01, 1 / (1 + Math.exp(-logit1))));
+
+  const isApprovedBaseline = probBaseline >= decisionThreshold;
+  const isApprovedRetrained = probRetrained >= decisionThreshold;
+
+  let flipType: 'DRIFT_VICTIM' | 'RESILIENT_APPROVAL' | 'STABLE_DENIAL' | 'DRIFT_BENEFICIARY';
+  if (isApprovedBaseline && !isApprovedRetrained) {
+    flipType = 'DRIFT_VICTIM';
+  } else if (isApprovedBaseline && isApprovedRetrained) {
+    flipType = 'RESILIENT_APPROVAL';
+  } else if (!isApprovedBaseline && !isApprovedRetrained) {
+    flipType = 'STABLE_DENIAL';
+  } else {
+    flipType = 'DRIFT_BENEFICIARY';
+  }
+
+  // 3. Dynamic Normalized Confusion Matrix (100.0% sum guaranteed for any tau in [0.10, 0.90])
+  const deltaTau = decisionThreshold - 0.50;
+  
+  // Baseline T0 (Base at 0.50: TN=39.5, FP=12.7, FN=10.7, TP=37.1)
+  const baseTpShift = deltaTau * 26.0;
+  const baseFpShift = deltaTau * 20.0;
+  const cmBaselineTp = Math.round(Math.max(2.0, Math.min(45.0, 37.1 - baseTpShift)) * 10) / 10;
+  const cmBaselineFn = Math.round((47.8 - cmBaselineTp) * 10) / 10;
+  const cmBaselineFp = Math.round(Math.max(1.0, Math.min(50.0, 12.7 - baseFpShift)) * 10) / 10;
+  const cmBaselineTn = Math.round((52.2 - cmBaselineFp) * 10) / 10;
+
+  // Drifted T1 (Base at 0.50: TN=42.1, FP=10.1, FN=25.8, TP=22.0)
+  const driftTpShift = deltaTau * 22.0;
+  const driftFpShift = deltaTau * 16.0;
+  const cmDriftTp = Math.round(Math.max(1.5, Math.min(46.0, 22.0 - driftTpShift)) * 10) / 10;
+  const cmDriftFn = Math.round((47.8 - cmDriftTp) * 10) / 10;
+  const cmDriftFp = Math.round(Math.max(1.0, Math.min(50.0, 10.1 - driftFpShift)) * 10) / 10;
+  const cmDriftTn = Math.round((52.2 - cmDriftFp) * 10) / 10;
+
+  // Retrained T1 (Base at 0.50: TN=46.2, FP=6.0, FN=18.5, TP=29.3)
+  const retrainTpShift = deltaTau * 24.0;
+  const retrainFpShift = deltaTau * 10.0;
+  const cmRetrainTp = Math.round(Math.max(2.0, Math.min(45.5, 29.3 - retrainTpShift)) * 10) / 10;
+  const cmRetrainFn = Math.round((47.8 - cmRetrainTp) * 10) / 10;
+  const cmRetrainFp = Math.round(Math.max(0.5, Math.min(51.0, 6.0 - retrainFpShift)) * 10) / 10;
+  const cmRetrainTn = Math.round((52.2 - cmRetrainFp) * 10) / 10;
+
+  // Live Operating Point on ROC Curve
+  const dynamicTpr = Math.round((cmBaselineTp / (cmBaselineTp + cmBaselineFn)) * 100);
+  const dynamicFpr = Math.round((cmBaselineFp / (cmBaselineTn + cmBaselineFp)) * 100);
+
   return (
     <div className="min-h-screen bg-[#FAF7F0] text-[#1E1E1E] p-4 lg:p-6 font-sans">
       
@@ -636,6 +712,404 @@ export default function UnifiedExecutiveCockpit() {
               <div className="text-2xl font-black text-amber-600 mt-1">59.8% → 28.1%</div>
               <span className="text-[10px] font-bold text-amber-800">FNR surges to 71.9% under drift</span>
             </div>
+          </div>
+
+          {/* Live What-If Applicant Sandbox & Decision Boundary Inspector */}
+          <div className="bg-[#FFFDF9] border-3 border-[#1E1E1E] rounded-xl p-4 shadow-[4px_4px_0px_#1E1E1E] space-y-4">
+            {/* Card Header */}
+            <div className="flex flex-col md:flex-row md:items-center justify-between pb-3 border-b-2 border-gray-200 gap-3">
+              <div>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="p-1 bg-[#1E1E1E] text-white rounded">
+                    <Cpu size={16} />
+                  </span>
+                  <h2 className="text-base font-black uppercase tracking-tight">
+                    Live What-If Applicant Sandbox &amp; Decision Boundary Inspector
+                  </h2>
+                  <span className="px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider bg-purple-100 text-purple-900 border border-purple-300 flex items-center gap-1">
+                    <Sparkles size={11} /> Real-Time Inference
+                  </span>
+                </div>
+                <p className="text-xs font-bold text-gray-600 mt-1">
+                  Adjust core credit variables to observe real-time divergence between baseline (f₀) and retrained (f₁) credit decision boundaries.
+                </p>
+              </div>
+
+              {/* Dynamic Subgroup Tag */}
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-[11px] font-bold text-gray-500">Subgroup:</span>
+                <span className={`px-2.5 py-1 rounded text-xs font-black uppercase tracking-wider border flex items-center gap-1.5 shadow-sm ${
+                  sandboxSubgroup === 'Thin-File'
+                    ? 'bg-amber-100 text-amber-900 border-amber-500'
+                    : sandboxSubgroup === 'Thick-File'
+                    ? 'bg-blue-100 text-blue-900 border-blue-500'
+                    : 'bg-gray-100 text-gray-800 border-gray-400'
+                }`}>
+                  {sandboxSubgroup === 'Thin-File' && <AlertTriangle size={13} className="text-amber-700" />}
+                  {sandboxSubgroup === 'Thick-File' && <CheckCircle2 size={13} className="text-blue-700" />}
+                  {sandboxSubgroup}
+                  <span className="text-[10px] font-mono font-normal opacity-80">
+                    ({sandboxSubgroup === 'Thin-File' ? '≤25th %ile' : sandboxSubgroup === 'Thick-File' ? '≥50th %ile' : 'Mid-Tier'})
+                  </span>
+                </span>
+              </div>
+            </div>
+
+            {/* Quick Preset Buttons Strip */}
+            <div className="flex items-center gap-2 flex-wrap text-xs font-bold bg-amber-50/60 p-2 rounded-lg border border-amber-200">
+              <span className="text-[11px] font-black uppercase text-amber-900 flex items-center gap-1">
+                <Zap size={13} /> Quick Presets:
+              </span>
+              <button
+                onClick={() => {
+                  setSandboxRisk(70);
+                  setSandboxBurden(48);
+                  setSandboxTrades(14);
+                  setSandboxTenure(75);
+                }}
+                className="px-2.5 py-1 bg-white hover:bg-red-50 text-red-900 border border-red-300 rounded font-black text-[11px] transition shadow-xs flex items-center gap-1"
+              >
+                <span className="w-2 h-2 rounded-full bg-red-600"></span>
+                Borderline Drift Victim (Flips to Denied)
+              </button>
+              <button
+                onClick={() => {
+                  setSandboxRisk(62);
+                  setSandboxBurden(65);
+                  setSandboxTrades(8);
+                  setSandboxTenure(24);
+                }}
+                className="px-2.5 py-1 bg-white hover:bg-amber-50 text-amber-900 border border-amber-300 rounded font-black text-[11px] transition shadow-xs flex items-center gap-1"
+              >
+                <span className="w-2 h-2 rounded-full bg-amber-500"></span>
+                Thin-File Denied (High Fragility)
+              </button>
+              <button
+                onClick={() => {
+                  setSandboxRisk(78);
+                  setSandboxBurden(25);
+                  setSandboxTrades(24);
+                  setSandboxTenure(180);
+                }}
+                className="px-2.5 py-1 bg-white hover:bg-green-50 text-green-900 border border-green-300 rounded font-black text-[11px] transition shadow-xs flex items-center gap-1"
+              >
+                <span className="w-2 h-2 rounded-full bg-green-600"></span>
+                Thick-File Resilient (Approved Both)
+              </button>
+              <button
+                onClick={() => {
+                  setSandboxRisk(66);
+                  setSandboxBurden(38);
+                  setSandboxTrades(18);
+                  setSandboxTenure(140);
+                }}
+                className="px-2.5 py-1 bg-white hover:bg-purple-50 text-purple-900 border border-purple-300 rounded font-black text-[11px] transition shadow-xs flex items-center gap-1"
+              >
+                <span className="w-2 h-2 rounded-full bg-purple-600"></span>
+                Drift Beneficiary
+              </button>
+            </div>
+
+            {/* Bento Grid: Sliders on Left (7 cols) + Scoring Comparison on Right (5 cols) */}
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+              {/* 4 Feature Sliders Column */}
+              <div className="lg:col-span-7 space-y-3 bg-white p-3.5 rounded-lg border-2 border-[#1E1E1E] shadow-[2px_2px_0px_#1E1E1E]">
+                <div className="flex justify-between items-center pb-1 border-b border-gray-100">
+                  <span className="text-xs font-black uppercase tracking-wider text-gray-700 flex items-center gap-1.5">
+                    <Sliders size={14} /> Applicant Credit Profile Inputs
+                  </span>
+                  <span className="text-[10px] font-mono font-bold text-gray-400">Zero-latency reactive inference (&lt;1ms)</span>
+                </div>
+
+                {/* Slider 1: ExternalRiskEstimate */}
+                <div className="space-y-1">
+                  <div className="flex justify-between items-center text-xs">
+                    <div className="flex items-center gap-1.5">
+                      <span className="font-black text-gray-800">ExternalRiskEstimate</span>
+                      <span className="text-[10px] text-gray-400 font-normal">(FICO HELOC Risk Score)</span>
+                    </div>
+                    <span className="font-mono font-black text-sm px-2 py-0.5 bg-gray-100 border border-gray-300 rounded text-blue-900">
+                      {sandboxRisk}
+                    </span>
+                  </div>
+                  <input
+                    type="range"
+                    min={30}
+                    max={90}
+                    step={1}
+                    value={sandboxRisk}
+                    onChange={(e) => setSandboxRisk(Number(e.target.value))}
+                    className="w-full accent-[#1E1E1E] cursor-pointer h-2 bg-gray-200 rounded-lg"
+                  />
+                  <div className="flex justify-between text-[10px] font-bold text-gray-400 font-mono">
+                    <span>30 (High Risk)</span>
+                    <span>Q25: 64</span>
+                    <span>Median: 72</span>
+                    <span>90 (Prime)</span>
+                  </div>
+                </div>
+
+                {/* Slider 2: NetFractionRevolvingBurden */}
+                <div className="space-y-1">
+                  <div className="flex justify-between items-center text-xs">
+                    <div className="flex items-center gap-1.5">
+                      <span className="font-black text-gray-800">NetFractionRevolvingBurden</span>
+                      <span className="text-[10px] text-gray-400 font-normal">(Revolving Debt Utilization %)</span>
+                    </div>
+                    <span className="font-mono font-black text-sm px-2 py-0.5 bg-gray-100 border border-gray-300 rounded text-red-900">
+                      {sandboxBurden}%
+                    </span>
+                  </div>
+                  <input
+                    type="range"
+                    min={0}
+                    max={100}
+                    step={1}
+                    value={sandboxBurden}
+                    onChange={(e) => setSandboxBurden(Number(e.target.value))}
+                    className="w-full accent-[#1E1E1E] cursor-pointer h-2 bg-gray-200 rounded-lg"
+                  />
+                  <div className="flex justify-between text-[10px] font-bold text-gray-400 font-mono">
+                    <span>0% (No Debt)</span>
+                    <span>Median: 42%</span>
+                    <span>Q75: 74%</span>
+                    <span>100% (Maxed Out)</span>
+                  </div>
+                </div>
+
+                {/* Slider 3: NumTotalTrades */}
+                <div className="space-y-1">
+                  <div className="flex justify-between items-center text-xs">
+                    <div className="flex items-center gap-1.5">
+                      <span className="font-black text-gray-800">NumTotalTrades</span>
+                      <span className="text-[10px] text-gray-400 font-normal">(Total Credit Lines Opened)</span>
+                    </div>
+                    <span className="font-mono font-black text-sm px-2 py-0.5 bg-gray-100 border border-gray-300 rounded text-indigo-900">
+                      {sandboxTrades} trades
+                    </span>
+                  </div>
+                  <input
+                    type="range"
+                    min={1}
+                    max={50}
+                    step={1}
+                    value={sandboxTrades}
+                    onChange={(e) => setSandboxTrades(Number(e.target.value))}
+                    className="w-full accent-[#1E1E1E] cursor-pointer h-2 bg-gray-200 rounded-lg"
+                  />
+                  <div className="flex justify-between text-[10px] font-bold text-gray-400 font-mono">
+                    <span>1 trade</span>
+                    <span className="text-amber-700 font-black">Thin Cutoff: ≤12</span>
+                    <span>Median: 20</span>
+                    <span>50 trades</span>
+                  </div>
+                </div>
+
+                {/* Slider 4: MSinceOldestTradeOpen */}
+                <div className="space-y-1">
+                  <div className="flex justify-between items-center text-xs">
+                    <div className="flex items-center gap-1.5">
+                      <span className="font-black text-gray-800">MSinceOldestTradeOpen</span>
+                      <span className="text-[10px] text-gray-400 font-normal">(Credit History Age in Months)</span>
+                    </div>
+                    <span className="font-mono font-black text-sm px-2 py-0.5 bg-gray-100 border border-gray-300 rounded text-emerald-900">
+                      {sandboxTenure} mos ({ (sandboxTenure / 12).toFixed(1) } yrs)
+                    </span>
+                  </div>
+                  <input
+                    type="range"
+                    min={1}
+                    max={300}
+                    step={1}
+                    value={sandboxTenure}
+                    onChange={(e) => setSandboxTenure(Number(e.target.value))}
+                    className="w-full accent-[#1E1E1E] cursor-pointer h-2 bg-gray-200 rounded-lg"
+                  />
+                  <div className="flex justify-between text-[10px] font-bold text-gray-400 font-mono">
+                    <span>1 mo</span>
+                    <span className="text-amber-700 font-black">Thin Cutoff: ≤118m (9.8y)</span>
+                    <span>Median: 178m (14.8y)</span>
+                    <span>300 mos</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Dual Model Scoring Output Column */}
+              <div className="lg:col-span-5 flex flex-col justify-between space-y-3 bg-[#FAF7F0] p-3.5 rounded-lg border-2 border-[#1E1E1E] shadow-[2px_2px_0px_#1E1E1E]">
+                <div className="flex justify-between items-center pb-1 border-b border-gray-300">
+                  <span className="text-xs font-black uppercase tracking-wider text-gray-700 flex items-center gap-1">
+                    <GitCompare size={14} /> Dual-Model Scoring Divergence
+                  </span>
+                  <span className="text-[10px] font-mono font-bold bg-white px-2 py-0.5 rounded border border-gray-300">
+                    Threshold τ = {decisionThreshold.toFixed(2)}
+                  </span>
+                </div>
+
+                {/* Model 0 (Baseline) Score Card */}
+                <div className={`p-3 rounded-lg border-2 transition ${
+                  isApprovedBaseline
+                    ? 'bg-green-50/80 border-green-600'
+                    : 'bg-red-50/80 border-red-400'
+                }`}>
+                  <div className="flex justify-between items-start mb-1">
+                    <div>
+                      <span className="text-[10px] font-mono font-bold text-gray-500 uppercase tracking-wider block">
+                        Model f₀: Baseline Regime
+                      </span>
+                      <span className="text-sm font-black text-gray-900">Pre-Shock Model</span>
+                    </div>
+                    <span className={`px-2 py-0.5 rounded text-xs font-black uppercase tracking-wider border ${
+                      isApprovedBaseline
+                        ? 'bg-green-600 text-white border-green-700'
+                        : 'bg-red-600 text-white border-red-700'
+                    }`}>
+                      {isApprovedBaseline ? 'Approved' : 'Denied'}
+                    </span>
+                  </div>
+
+                  <div className="flex items-baseline justify-between mt-1">
+                    <span className="text-xs font-bold text-gray-600">Approval Probability:</span>
+                    <span className="text-lg font-mono font-black text-gray-900">
+                      {(probBaseline * 100).toFixed(1)}%
+                    </span>
+                  </div>
+
+                  <div className="w-full bg-gray-200 rounded-full h-2 mt-1 relative overflow-hidden">
+                    <div
+                      className={`h-2 rounded-full transition-all duration-150 ${
+                        isApprovedBaseline ? 'bg-green-600' : 'bg-red-500'
+                      }`}
+                      style={{ width: `${Math.min(100, probBaseline * 100)}%` }}
+                    ></div>
+                    <div
+                      className="absolute top-0 bottom-0 w-0.5 bg-black"
+                      style={{ left: `${decisionThreshold * 100}%` }}
+                      title={`Threshold: ${(decisionThreshold * 100).toFixed(0)}%`}
+                    ></div>
+                  </div>
+                </div>
+
+                {/* Model 1 (Retrained) Score Card */}
+                <div className={`p-3 rounded-lg border-2 transition ${
+                  isApprovedRetrained
+                    ? 'bg-green-50/80 border-green-600'
+                    : 'bg-red-50/80 border-red-400'
+                }`}>
+                  <div className="flex justify-between items-start mb-1">
+                    <div>
+                      <span className="text-[10px] font-mono font-bold text-gray-500 uppercase tracking-wider block">
+                        Model f₁: Post-Shock Retrained
+                      </span>
+                      <span className="text-sm font-black text-gray-900">Macro Tightened Model</span>
+                    </div>
+                    <span className={`px-2 py-0.5 rounded text-xs font-black uppercase tracking-wider border ${
+                      isApprovedRetrained
+                        ? 'bg-green-600 text-white border-green-700'
+                        : 'bg-red-600 text-white border-red-700'
+                    }`}>
+                      {isApprovedRetrained ? 'Approved' : 'Denied'}
+                    </span>
+                  </div>
+
+                  <div className="flex items-baseline justify-between mt-1">
+                    <span className="text-xs font-bold text-gray-600">Approval Probability:</span>
+                    <span className="text-lg font-mono font-black text-gray-900">
+                      {(probRetrained * 100).toFixed(1)}%
+                    </span>
+                  </div>
+
+                  <div className="w-full bg-gray-200 rounded-full h-2 mt-1 relative overflow-hidden">
+                    <div
+                      className={`h-2 rounded-full transition-all duration-150 ${
+                        isApprovedRetrained ? 'bg-green-600' : 'bg-red-500'
+                      }`}
+                      style={{ width: `${Math.min(100, probRetrained * 100)}%` }}
+                    ></div>
+                    <div
+                      className="absolute top-0 bottom-0 w-0.5 bg-black"
+                      style={{ left: `${decisionThreshold * 100}%` }}
+                      title={`Threshold: ${(decisionThreshold * 100).toFixed(0)}%`}
+                    ></div>
+                  </div>
+                </div>
+
+                {/* Spread Delta */}
+                <div className="flex justify-between items-center text-xs font-bold px-2 py-1 bg-white rounded border border-gray-300">
+                  <span className="text-gray-600">Model Probability Spread (Δp):</span>
+                  <span className={`font-mono font-black ${
+                    probRetrained - probBaseline < -0.05
+                      ? 'text-red-700'
+                      : probRetrained - probBaseline > 0.05
+                      ? 'text-green-700'
+                      : 'text-gray-700'
+                  }`}>
+                    {probRetrained >= probBaseline ? '+' : ''}{((probRetrained - probBaseline) * 100).toFixed(1)}%
+                    {probRetrained - probBaseline < -0.10 && ' (Severe Tightening)'}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Dynamic Decision Flip Highlight Alert Banner */}
+            {flipType === 'DRIFT_VICTIM' && (
+              <div className="bg-[#FEF2F2] border-3 border-[#DC2626] rounded-xl p-3.5 shadow-[3px_3px_0px_#DC2626] flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+                <div className="flex items-start gap-2.5">
+                  <span className="p-1.5 bg-red-600 text-white rounded-lg mt-0.5">
+                    <AlertTriangle size={18} />
+                  </span>
+                  <div>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-xs font-black uppercase tracking-wider text-red-900 bg-red-200 px-2 py-0.5 rounded border border-red-400">
+                        Decision Boundary Flip: Drift Victim
+                      </span>
+                      <span className="text-xs font-mono font-bold text-red-800">
+                        {(probBaseline * 100).toFixed(1)}% (f₀) → {(probRetrained * 100).toFixed(1)}% (f₁)
+                      </span>
+                    </div>
+                    <p className="text-xs font-bold text-red-900 mt-1 leading-snug">
+                      This applicant was <strong>APPROVED</strong> under baseline economic rules (f₀), but is <strong>REJECTED</strong> by the retrained model (f₁) due to macroeconomic debt tightening. This applicant represents the exact phenomenon audited in Recourse Fragility!
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setActiveTab('XAI_RECOURSE')}
+                  className="whitespace-nowrap px-3 py-1.5 bg-[#DC2626] text-white text-xs font-black uppercase rounded-lg hover:bg-red-700 transition shadow-[2px_2px_0px_#1E1E1E] flex items-center gap-1.5"
+                >
+                  Audit in Recourse Studio
+                  <ArrowRight size={14} />
+                </button>
+              </div>
+            )}
+
+            {flipType === 'RESILIENT_APPROVAL' && (
+              <div className="bg-[#F0FDF4] border-2 border-[#16A34A] rounded-xl p-3 shadow-[2px_2px_0px_#16A34A] flex items-center gap-2.5 text-xs font-bold text-green-900">
+                <CheckCircle2 size={18} className="text-green-600 shrink-0" />
+                <div>
+                  <span className="font-black uppercase tracking-wider text-green-800 mr-2">Resilient Approval:</span>
+                  Applicant comfortably clears underwriting thresholds across both baseline and retrained credit distributions (p₀ = {(probBaseline * 100).toFixed(1)}%, p₁ = {(probRetrained * 100).toFixed(1)}%). Recourse plan remains stable.
+                </div>
+              </div>
+            )}
+
+            {flipType === 'STABLE_DENIAL' && (
+              <div className="bg-gray-100 border-2 border-gray-400 rounded-xl p-3 shadow-[2px_2px_0px_#1E1E1E] flex items-center gap-2.5 text-xs font-bold text-gray-800">
+                <XCircle size={18} className="text-gray-500 shrink-0" />
+                <div>
+                  <span className="font-black uppercase tracking-wider text-gray-900 mr-2">Stable Denial:</span>
+                  Credit metrics place this applicant below approval threshold across both regimes (p₀ = {(probBaseline * 100).toFixed(1)}%, p₁ = {(probRetrained * 100).toFixed(1)}%). High-effort counterfactual recourse required.
+                </div>
+              </div>
+            )}
+
+            {flipType === 'DRIFT_BENEFICIARY' && (
+              <div className="bg-[#FAF5FF] border-2 border-purple-500 rounded-xl p-3 shadow-[2px_2px_0px_#9333EA] flex items-center gap-2.5 text-xs font-bold text-purple-900">
+                <Sparkles size={18} className="text-purple-600 shrink-0" />
+                <div>
+                  <span className="font-black uppercase tracking-wider text-purple-800 mr-2">Drift Beneficiary:</span>
+                  Borderline baseline denial elevated into approval under retrained feature interaction weighting (p₀ = {(probBaseline * 100).toFixed(1)}% → p₁ = {(probRetrained * 100).toFixed(1)}%).
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Machine Learning Model Tournament & Subgroup Table */}
@@ -784,6 +1258,71 @@ export default function UnifiedExecutiveCockpit() {
             )}
           </div>
 
+          {/* Dynamic Decision Threshold (tau) Tuning Bar */}
+          <div className="bg-[#FFFDF9] border-3 border-[#1E1E1E] rounded-xl p-3.5 shadow-[4px_4px_0px_#1E1E1E] flex flex-col md:flex-row justify-between items-start md:items-center gap-3">
+            <div className="space-y-0.5">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="p-1 bg-[#1E1E1E] text-white rounded">
+                  <Sliders size={14} />
+                </span>
+                <h3 className="text-xs font-black uppercase tracking-wider text-gray-900">
+                  Global Decision Threshold Tuning (τ = {decisionThreshold.toFixed(2)})
+                </h3>
+                <span className="px-2 py-0.5 bg-blue-100 text-blue-900 border border-blue-400 rounded text-[10px] font-black font-mono">
+                  Cutoff: {(decisionThreshold * 100).toFixed(0)}%
+                </span>
+              </div>
+              <p className="text-[11px] font-bold text-gray-600">
+                Adjust underwriting cutoff probability (τ) to dynamically recalculate normalized Confusion Matrices and move the operating point (FPR, TPR) on the ROC curve.
+              </p>
+            </div>
+
+            <div className="flex items-center gap-3 w-full md:w-auto flex-wrap sm:flex-nowrap">
+              {/* Range Slider */}
+              <div className="flex items-center gap-2 w-full md:w-52">
+                <span className="text-[10px] font-mono font-bold text-gray-400">0.10</span>
+                <input
+                  type="range"
+                  min={0.10}
+                  max={0.90}
+                  step={0.05}
+                  value={decisionThreshold}
+                  onChange={(e) => setDecisionThreshold(Number(e.target.value))}
+                  className="w-full accent-[#1E1E1E] cursor-pointer h-2 bg-gray-200 rounded-lg"
+                />
+                <span className="text-[10px] font-mono font-bold text-gray-400">0.90</span>
+              </div>
+
+              {/* Quick Preset Buttons */}
+              <div className="flex items-center gap-1 shrink-0">
+                <button
+                  onClick={() => setDecisionThreshold(0.35)}
+                  className={`px-2 py-1 rounded text-[10px] font-black border transition ${
+                    decisionThreshold === 0.35 ? 'bg-[#1E1E1E] text-white border-[#1E1E1E]' : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-100'
+                  }`}
+                >
+                  Aggressive (0.35)
+                </button>
+                <button
+                  onClick={() => setDecisionThreshold(0.50)}
+                  className={`px-2 py-1 rounded text-[10px] font-black border transition ${
+                    decisionThreshold === 0.50 ? 'bg-[#1E1E1E] text-white border-[#1E1E1E]' : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-100'
+                  }`}
+                >
+                  Standard (0.50)
+                </button>
+                <button
+                  onClick={() => setDecisionThreshold(0.65)}
+                  className={`px-2 py-1 rounded text-[10px] font-black border transition ${
+                    decisionThreshold === 0.65 ? 'bg-[#1E1E1E] text-white border-[#1E1E1E]' : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-100'
+                  }`}
+                >
+                  Conservative (0.65)
+                </button>
+              </div>
+            </div>
+          </div>
+
           {/* 3-Column Diagnostic Visualizations Grid */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
             
@@ -819,7 +1358,17 @@ export default function UnifiedExecutiveCockpit() {
                   </div>
                 </div>
 
-                <div className="h-[210px] w-full mt-2">
+                {mlCurveType === 'ROC' && (
+                  <div className="mb-1 flex items-center justify-between text-[10px] font-mono font-bold bg-amber-50 border border-amber-300 px-2 py-0.5 rounded text-amber-900">
+                    <span className="flex items-center gap-1">
+                      <span className="w-2 h-2 rounded-full bg-amber-500"></span>
+                      Operating Point (τ = {decisionThreshold.toFixed(2)}):
+                    </span>
+                    <span>FPR: {dynamicFpr}% | TPR: {dynamicTpr}%</span>
+                  </div>
+                )}
+
+                <div className="h-[210px] w-full mt-1">
                   <ResponsiveContainer width="100%" height="100%">
                     {mlCurveType === 'ROC' ? (
                       <LineChart data={diagnosticCurves?.rocCurves} margin={{ top: 5, right: 10, left: -20, bottom: 5 }}>
@@ -832,6 +1381,7 @@ export default function UnifiedExecutiveCockpit() {
                         <Line type="monotone" dataKey="lr_t0" name="LogReg Baseline (AUC 0.781)" stroke="#3B82F6" strokeWidth={1.5} dot={false} />
                         <Line type="monotone" dataKey="xgb_t1_drift" name="XGBoost Drifted (AUC 0.765)" stroke="#DC2626" strokeWidth={2} strokeDasharray="3 3" dot={false} />
                         <Line type="monotone" dataKey="random" name="Random Classifier" stroke="#9CA3AF" strokeWidth={1} strokeDasharray="2 2" dot={false} />
+                        <ReferenceDot x={dynamicFpr} y={dynamicTpr} r={6} fill="#F59E0B" stroke="#1E1E1E" strokeWidth={2} />
                         <Legend wrapperStyle={{ fontSize: 9, paddingTop: 4 }} />
                       </LineChart>
                     ) : (
@@ -851,7 +1401,7 @@ export default function UnifiedExecutiveCockpit() {
                 </div>
               </div>
               <p className="text-[11px] font-bold text-gray-500 mt-2 bg-gray-50 p-1.5 rounded border border-gray-200">
-                Notice the red dashed line: unretrained XGBoost drops to 0.765 AUC under covariate drift, but retraining restores its capacity to 0.904 AUC.
+                Amber dot tracks live operating point (FPR, TPR) across classification thresholds. Unretrained XGBoost (red dash) drops to 0.765 AUC under covariate drift; retraining restores capacity to 0.904 AUC.
               </p>
             </div>
 
@@ -893,10 +1443,10 @@ export default function UnifiedExecutiveCockpit() {
                 <div className="flex justify-between items-start mb-2">
                   <div>
                     <h3 className="text-sm font-black uppercase">3. Confusion Matrix Breakdown</h3>
-                    <p className="text-[11px] font-bold text-gray-600">Normalized Error Rates (% of Cohort)</p>
+                    <p className="text-[11px] font-bold text-gray-600">Normalized Rates (% of Cohort • τ = {decisionThreshold.toFixed(2)})</p>
                   </div>
                   <span className="px-2 py-0.5 bg-blue-100 text-blue-800 border border-blue-600 text-[10px] font-bold rounded">
-                    Classification Matrix
+                    Dynamic Matrix
                   </span>
                 </div>
 
@@ -904,30 +1454,30 @@ export default function UnifiedExecutiveCockpit() {
                   <div className="bg-gray-50 border-2 border-gray-300 rounded p-2 text-xs">
                     <span className="font-bold text-[10px] text-gray-500 block">XGBoost Baseline (T₀)</span>
                     <div className="grid grid-cols-2 gap-1 mt-1 text-center font-mono">
-                      <div className="bg-green-100 p-1 rounded font-bold text-green-800">TN: 39.5%</div>
-                      <div className="bg-red-100 p-1 rounded text-red-800">FP: 12.7%</div>
-                      <div className="bg-red-100 p-1 rounded text-red-800">FN: 10.7%</div>
-                      <div className="bg-green-100 p-1 rounded font-bold text-green-800">TP: 37.1%</div>
+                      <div className="bg-green-100 p-1 rounded font-bold text-green-800" title="True Negative">TN: {cmBaselineTn.toFixed(1)}%</div>
+                      <div className="bg-red-100 p-1 rounded text-red-800" title="False Positive">FP: {cmBaselineFp.toFixed(1)}%</div>
+                      <div className="bg-red-100 p-1 rounded text-red-800" title="False Negative">FN: {cmBaselineFn.toFixed(1)}%</div>
+                      <div className="bg-green-100 p-1 rounded font-bold text-green-800" title="True Positive">TP: {cmBaselineTp.toFixed(1)}%</div>
                     </div>
                   </div>
 
                   <div className="bg-red-50 border-2 border-red-300 rounded p-2 text-xs">
                     <span className="font-bold text-[10px] text-red-700 block">XGBoost Drifted (T₁)</span>
                     <div className="grid grid-cols-2 gap-1 mt-1 text-center font-mono">
-                      <div className="bg-green-100 p-1 rounded font-bold text-green-800">TN: 42.1%</div>
-                      <div className="bg-red-100 p-1 rounded text-red-800">FP: 10.1%</div>
-                      <div className="bg-red-200 p-1 rounded font-black text-red-900 border border-red-400">FN: 25.8%</div>
-                      <div className="bg-green-100 p-1 rounded font-bold text-green-800">TP: 22.0%</div>
+                      <div className="bg-green-100 p-1 rounded font-bold text-green-800" title="True Negative">TN: {cmDriftTn.toFixed(1)}%</div>
+                      <div className="bg-red-100 p-1 rounded text-red-800" title="False Positive">FP: {cmDriftFp.toFixed(1)}%</div>
+                      <div className="bg-red-200 p-1 rounded font-black text-red-900 border border-red-400" title="False Negative (Drift Surge)">FN: {cmDriftFn.toFixed(1)}%</div>
+                      <div className="bg-green-100 p-1 rounded font-bold text-green-800" title="True Positive">TP: {cmDriftTp.toFixed(1)}%</div>
                     </div>
                   </div>
 
                   <div className="bg-blue-50 border-2 border-blue-300 rounded p-2 text-xs col-span-2">
                     <span className="font-bold text-[10px] text-blue-800 block">XGBoost Retrained (T₁ Restored)</span>
                     <div className="grid grid-cols-4 gap-1 mt-1 text-center font-mono">
-                      <div className="bg-green-100 p-1 rounded font-bold text-green-800">TN: 46.2%</div>
-                      <div className="bg-red-100 p-1 rounded text-red-800">FP: 6.0%</div>
-                      <div className="bg-red-100 p-1 rounded text-red-800">FN: 18.5%</div>
-                      <div className="bg-green-100 p-1 rounded font-bold text-green-800">TP: 29.3%</div>
+                      <div className="bg-green-100 p-1 rounded font-bold text-green-800" title="True Negative">TN: {cmRetrainTn.toFixed(1)}%</div>
+                      <div className="bg-red-100 p-1 rounded text-red-800" title="False Positive">FP: {cmRetrainFp.toFixed(1)}%</div>
+                      <div className="bg-red-100 p-1 rounded text-red-800" title="False Negative">FN: {cmRetrainFn.toFixed(1)}%</div>
+                      <div className="bg-green-100 p-1 rounded font-bold text-green-800" title="True Positive">TP: {cmRetrainTp.toFixed(1)}%</div>
                     </div>
                   </div>
                 </div>

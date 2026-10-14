@@ -78,4 +78,10 @@ public class LoanApplicationController {
     public ResponseEntity<String> getMlDiagnosticCurves() {
         return ResponseEntity.ok(fastApiClient.getMlDiagnosticCurves());
     }
+
+    @PostMapping("/ml/sandbox/score")
+    public ResponseEntity<String> scoreSandbox(@RequestBody Object payload) {
+        return ResponseEntity.ok(fastApiClient.scoreSandboxApplicant(payload));
+    }
 }
+

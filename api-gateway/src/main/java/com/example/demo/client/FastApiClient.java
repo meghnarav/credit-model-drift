@@ -77,4 +77,13 @@ public class FastApiClient {
             .retrieve()
             .body(String.class);
     }
+
+    public String scoreSandboxApplicant(Object payload) {
+        return restClient.post()
+            .uri("/api/v1/ml/sandbox/score")
+            .body(payload)
+            .retrieve()
+            .body(String.class);
+    }
 }
+
