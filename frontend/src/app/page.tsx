@@ -936,7 +936,7 @@ export default function UnifiedExecutiveCockpit() {
               {/* Bottom Switcher Callout to Tab 2 */}
               <div className="mt-3 pt-2 border-t border-gray-200 flex justify-between items-center">
                 <span className="text-[10px] font-bold text-gray-500">
-                  Ready to inspect algorithmic recourse invalidation?
+                  Evaluate post-drift recourse fragility and boundary shifts:
                 </span>
                 <button
                   onClick={() => setActiveTab('XAI_RECOURSE')}
@@ -1159,7 +1159,7 @@ export default function UnifiedExecutiveCockpit() {
                 <div className="flex items-center gap-3">
                   <Sliders size={20} className="text-amber-600" />
                   <span className="text-xs lg:text-sm font-black">
-                    Ready to investigate an individual applicant and inspect their Ceteris Paribus path?
+                    Examine instance-level recourse trajectories and Ceteris Paribus sensitivity curves for individual applicants.
                   </span>
                 </div>
                 <button
